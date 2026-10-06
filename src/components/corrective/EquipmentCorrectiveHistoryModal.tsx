@@ -15,6 +15,7 @@ import {
   User,
   Gauge,
   Tag,
+  FileText,
 } from 'lucide-react';
 import { CorrectiveMaintenance, Equipment } from '../../types';
 import { PhotoLightboxModal } from './PhotoLightboxModal';
@@ -255,12 +256,13 @@ export const EquipmentCorrectiveHistoryModal: React.FC<EquipmentCorrectiveHistor
                 <div className="relative pl-6 space-y-6 before:content-[''] before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200 dark:before:bg-slate-700">
                   {equipRecords.map((r) => {
                     const isCompleted = r.status === 'Concluída';
+                    const isUnderAnalysis = r.status === 'Em Análise';
                     return (
                       <div key={r.id} className="relative group">
                         {/* Dot indicator */}
                         <div
                           className={`absolute -left-6 top-1.5 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-slate-900 ${
-                            isCompleted ? 'bg-emerald-500' : 'bg-amber-500'
+                            isCompleted ? 'bg-emerald-500' : isUnderAnalysis ? 'bg-sky-500' : 'bg-amber-500'
                           }`}
                         />
 
@@ -278,6 +280,8 @@ export const EquipmentCorrectiveHistoryModal: React.FC<EquipmentCorrectiveHistor
                                 className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                                   isCompleted
                                     ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300'
+                                    : isUnderAnalysis
+                                    ? 'bg-sky-100 dark:bg-sky-950/50 text-sky-700 dark:text-sky-300'
                                     : 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300'
                                 }`}
                               >
@@ -324,18 +328,30 @@ export const EquipmentCorrectiveHistoryModal: React.FC<EquipmentCorrectiveHistor
                                 {r.photos.length} fotos anexadas:
                               </span>
                               <div className="flex items-center gap-1.5 overflow-x-auto">
-                                {r.photos.map((p) => (
-                                  <img
-                                    key={p.id}
-                                    src={p.dataUrl}
-                                    alt={p.name}
-                                    className="w-8 h-8 rounded object-cover border border-slate-200 dark:border-slate-700 hover:opacity-80 transition-opacity"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setSelectedPhoto({ url: p.dataUrl, name: p.name });
-                                    }}
-                                  />
-                                ))}
+                                {r.photos.map((p) => {
+                                  const isPdf = p.dataUrl.startsWith('data:application/pdf') || p.name.toLowerCase().endsWith('.pdf');
+                                  return (
+                                    <div
+                                      key={p.id}
+                                      className="w-8 h-8 rounded border border-slate-200 dark:border-slate-700 overflow-hidden cursor-pointer hover:opacity-80 transition-opacity flex items-center justify-center bg-slate-100 dark:bg-slate-800"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedPhoto({ url: p.dataUrl, name: p.name });
+                                      }}
+                                      title={p.name}
+                                    >
+                                      {isPdf ? (
+                                        <FileText className="w-4 h-4 text-rose-600" />
+                                      ) : (
+                                        <img
+                                          src={p.dataUrl}
+                                          alt={p.name}
+                                          className="w-full h-full object-cover"
+                                        />
+                                      )}
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </div>
                           )}
@@ -355,23 +371,38 @@ export const EquipmentCorrectiveHistoryModal: React.FC<EquipmentCorrectiveHistor
                   Galeria Geral de Evidências Fotográficas ({allPhotos.length})
                 </h4>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {allPhotos.map((photo, pIdx) => (
-                    <div
-                      key={pIdx}
-                      className="group relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 cursor-pointer aspect-video"
-                      onClick={() => setSelectedPhoto({ url: photo.dataUrl, name: photo.name })}
-                    >
-                      <img
-                        src={photo.dataUrl}
-                        alt={photo.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-2 text-white">
-                        <span className="font-bold font-mono text-[10px]">{photo.osNumber}</span>
-                        <span className="text-[9px] text-slate-300 truncate">{photo.name}</span>
+                  {allPhotos.map((photo, pIdx) => {
+                    const isPdf = photo.dataUrl.startsWith('data:application/pdf') || photo.name.toLowerCase().endsWith('.pdf');
+                    return (
+                      <div
+                        key={pIdx}
+                        className="group relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 cursor-pointer aspect-video flex items-center justify-center"
+                        onClick={() => setSelectedPhoto({ url: photo.dataUrl, name: photo.name })}
+                      >
+                        {isPdf ? (
+                          <div className="flex flex-col items-center justify-center p-2 text-center w-full h-full bg-rose-50 dark:bg-rose-950/30">
+                            <FileText className="w-7 h-7 text-rose-600 mb-1" />
+                            <span className="text-[10px] font-semibold text-slate-800 dark:text-slate-200 line-clamp-1 px-1">
+                              {photo.name}
+                            </span>
+                            <span className="text-[8px] text-rose-500 font-bold uppercase mt-0.5">
+                              Documento PDF
+                            </span>
+                          </div>
+                        ) : (
+                          <img
+                            src={photo.dataUrl}
+                            alt={photo.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-2 text-white">
+                          <span className="font-bold font-mono text-[10px]">{photo.osNumber}</span>
+                          <span className="text-[9px] text-slate-300 truncate">{photo.name}</span>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}

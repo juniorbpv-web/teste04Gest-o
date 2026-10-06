@@ -81,28 +81,29 @@ export function loadEquipments(): Equipment[] {
         if (existing) {
           handledStoredIds.add(existing.id);
           merged.push({
+            ...official,
             ...existing,
             id: official.id,
-            type: official.type,
-            plate: official.plate,
-            prefix: official.prefix,
-            model: official.model,
-            brand: official.brand,
-            supplier: official.supplier,
-            location: official.location,
-            chassis: official.chassis || existing.chassis,
-            demobilizationDate: official.demobilizationDate || existing.demobilizationDate,
-            obra_id: official.obra_id || existing.obra_id,
-            projectId: official.projectId || existing.projectId,
-            code: official.code,
-            brandModel: official.brandModel,
-            operator: official.operator || existing.operator,
+            code: existing.code || official.code,
+            type: existing.type || official.type,
+            plate: existing.plate || official.plate,
+            prefix: existing.prefix || official.prefix,
+            model: existing.model || official.model,
+            brand: existing.brand || official.brand,
+            supplier: existing.supplier || official.supplier,
+            location: existing.location || official.location,
+            chassis: existing.chassis || official.chassis,
+            demobilizationDate: existing.demobilizationDate || official.demobilizationDate,
+            obra_id: existing.obra_id || official.obra_id,
+            projectId: existing.projectId || official.projectId,
+            brandModel: existing.brandModel || official.brandModel,
+            operator: existing.operator || official.operator,
             currentHourMeter: Math.max(official.currentHourMeter || 0, existing.currentHourMeter || 0),
-            lastHourMeterDate: official.lastHourMeterDate || existing.lastHourMeterDate,
-            currentKm: official.currentKm !== undefined ? official.currentKm : existing.currentKm,
-            lastKmDate: official.lastKmDate || existing.lastKmDate,
+            lastHourMeterDate: existing.lastHourMeterDate || official.lastHourMeterDate,
+            currentKm: Math.max(official.currentKm || 0, existing.currentKm || 0),
+            lastKmDate: existing.lastKmDate || official.lastKmDate,
             files: existing.files && existing.files.length > 0 ? existing.files : official.files,
-            updatedAt: new Date().toISOString(),
+            updatedAt: existing.updatedAt || new Date().toISOString(),
           });
         } else {
           merged.push(official);
@@ -204,14 +205,17 @@ export function loadDailyLogs(): DailyLog[] {
       return sortedInitial;
     }
 
-    let parsed: DailyLog[] = JSON.parse(raw);
+    let parsed: DailyLog[] = Array.isArray(JSON.parse(raw)) ? JSON.parse(raw) : [];
 
-    // If sync not done, reset to official 82 logs up to 24/09/2026 05:00
+    // Safe non-destructive merge: preserve all existing user logs and backfill initial logs
     if (!syncDone) {
-      const sortedInitial = sortDailyLogsAscending(INITIAL_LOGS);
-      localStorage.setItem(DAILY_LOGS_KEY, JSON.stringify(sortedInitial));
+      const logsMap = new Map<string, DailyLog>();
+      INITIAL_LOGS.forEach((l) => logsMap.set(l.id, l));
+      parsed.forEach((l) => logsMap.set(l.id, l)); // User logs take precedence
+      const merged = sortDailyLogsAscending(Array.from(logsMap.values()));
+      localStorage.setItem(DAILY_LOGS_KEY, JSON.stringify(merged));
       localStorage.setItem(DAILY_LOGS_SYNC_KEY, 'true');
-      return sortedInitial;
+      return merged;
     }
 
     return sortDailyLogsAscending(parsed);
@@ -355,17 +359,19 @@ export function loadFuelDispenses(): FuelDispense[] {
       localStorage.setItem(FUEL_SYNC_KEY, 'true');
       return INITIAL_FUEL_DISPENSES;
     }
-    let parsed: FuelDispense[] = JSON.parse(raw);
-    if (!Array.isArray(parsed) || parsed.length === 0) {
-      localStorage.setItem(FUEL_DISPENSES_KEY, JSON.stringify(INITIAL_FUEL_DISPENSES));
-      localStorage.setItem(FUEL_SYNC_KEY, 'true');
-      return INITIAL_FUEL_DISPENSES;
-    }
+    let parsed: FuelDispense[] = Array.isArray(JSON.parse(raw)) ? JSON.parse(raw) : [];
 
     if (!syncDone) {
-      localStorage.setItem(FUEL_DISPENSES_KEY, JSON.stringify(INITIAL_FUEL_DISPENSES));
+      const dispMap = new Map<string, FuelDispense>();
+      INITIAL_FUEL_DISPENSES.forEach((d) => dispMap.set(d.id, d));
+      parsed.forEach((d) => dispMap.set(d.id, d)); // Existing user records take precedence!
+      const merged = Array.from(dispMap.values()).map((d) => ({
+        ...d,
+        convoyPlate: (d.convoyPlate as string) === 'SFC2C66' ? 'SPF2C66' : d.convoyPlate,
+      }));
+      localStorage.setItem(FUEL_DISPENSES_KEY, JSON.stringify(merged));
       localStorage.setItem(FUEL_SYNC_KEY, 'true');
-      return INITIAL_FUEL_DISPENSES;
+      return merged;
     }
 
     return parsed.map((d) => ({
@@ -400,16 +406,27 @@ export function loadFuelEntries(): FuelEntry[] {
       localStorage.setItem(FUEL_SYNC_KEY, 'true');
       return INITIAL_FUEL_ENTRIES;
     }
-    let parsed: FuelEntry[] = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return INITIAL_FUEL_ENTRIES;
-
-    if (!syncDone) {
-      localStorage.setItem(FUEL_ENTRIES_KEY, JSON.stringify(INITIAL_FUEL_ENTRIES));
-      localStorage.setItem(FUEL_SYNC_KEY, 'true');
-      return INITIAL_FUEL_ENTRIES;
-    }
+    let parsed: FuelEntry[] = Array.isArray(JSON.parse(raw)) ? JSON.parse(raw) : [];
 
     const legacyPlaceholderIds = ['entry-rtw-001', 'entry-dza-001', 'entry-spf-001'];
+
+    if (!syncDone) {
+      const entryMap = new Map<string, FuelEntry>();
+      INITIAL_FUEL_ENTRIES.forEach((e) => entryMap.set(e.id, e));
+      parsed.forEach((e) => {
+        if (!legacyPlaceholderIds.includes(e.id)) {
+          entryMap.set(e.id, e); // Existing user records take precedence!
+        }
+      });
+      const merged = Array.from(entryMap.values()).map((e) => ({
+        ...e,
+        destination: e.destination ? e.destination.replace(/SFC2C66/g, 'SPF2C66') : e.destination,
+      }));
+      localStorage.setItem(FUEL_ENTRIES_KEY, JSON.stringify(merged));
+      localStorage.setItem(FUEL_SYNC_KEY, 'true');
+      return merged;
+    }
+
     return parsed
       .filter((e) => !legacyPlaceholderIds.includes(e.id))
       .map((e) => ({
@@ -728,37 +745,19 @@ export function savePreventivePlans(plans: PreventivePlan[]): void {
 export function loadPreventiveRecords(): PreventiveRecord[] {
   try {
     const raw = localStorage.getItem(PREVENTIVE_RECORDS_KEY);
-    const syncDone = localStorage.getItem(PREVENTIVE_SYNC_KEY) === 'true';
-    if (!raw || !syncDone) {
-      localStorage.setItem(PREVENTIVE_RECORDS_KEY, JSON.stringify(INITIAL_PREVENTIVE_RECORDS));
-      return INITIAL_PREVENTIVE_RECORDS;
-    }
-    const parsed = JSON.parse(raw);
+    const parsed = raw ? JSON.parse(raw) : [];
     const stored: PreventiveRecord[] = Array.isArray(parsed) ? parsed : [];
 
-    // Se estiver vazio e houver registros iniciais oficiais, popular
-    if (stored.length === 0 && INITIAL_PREVENTIVE_RECORDS.length > 0) {
-      localStorage.setItem(PREVENTIVE_RECORDS_KEY, JSON.stringify(INITIAL_PREVENTIVE_RECORDS));
-      return INITIAL_PREVENTIVE_RECORDS;
+    const recordMap = new Map<string, PreventiveRecord>();
+    INITIAL_PREVENTIVE_RECORDS.forEach((r) => recordMap.set(r.id, r));
+    stored.forEach((r) => recordMap.set(r.id, r)); // Existing user records take precedence!
+
+    const result = Array.from(recordMap.values());
+    if (!raw || stored.length !== result.length) {
+      localStorage.setItem(PREVENTIVE_RECORDS_KEY, JSON.stringify(result));
+      localStorage.setItem(PREVENTIVE_SYNC_KEY, 'true');
     }
-
-    // Mesclar registros oficiais caso não estejam no histórico
-    const existingIds = new Set(stored.map((r) => r.id));
-    let hasNew = false;
-    const merged = [...stored];
-    INITIAL_PREVENTIVE_RECORDS.forEach((rec) => {
-      if (!existingIds.has(rec.id)) {
-        merged.push(rec);
-        hasNew = true;
-      }
-    });
-
-    if (hasNew) {
-      localStorage.setItem(PREVENTIVE_RECORDS_KEY, JSON.stringify(merged));
-      return merged;
-    }
-
-    return stored;
+    return result;
   } catch (err) {
     console.error('Error reading preventive records from localStorage', err);
     return INITIAL_PREVENTIVE_RECORDS;
@@ -849,7 +848,7 @@ export function loadCorrectiveMaintenances(): CorrectiveMaintenance[] {
       INITIAL_CORRECTIVE_MAINTENANCES.forEach((item) => map.set(item.id, item));
       if (Array.isArray(existing)) {
         existing.forEach((item) => {
-          if (item && item.id && !item.id.startsWith('cor-00')) {
+          if (item && item.id) {
             map.set(item.id, item);
           }
         });
@@ -875,17 +874,27 @@ export function loadCorrectiveMaintenances(): CorrectiveMaintenance[] {
 
 export function saveCorrectiveMaintenances(records: CorrectiveMaintenance[]): void {
   try {
-    // Sanitize large base64 attachments if needed to avoid local storage quota limits
-    const sanitized = records.map((rec) => ({
-      ...rec,
-      photos: rec.photos?.map((p) => ({
-        ...p,
-        dataUrl: p.dataUrl && p.dataUrl.length > 250000 ? '' : p.dataUrl,
-      })) || [],
-    }));
-    localStorage.setItem(CORRECTIVE_MAINTENANCES_KEY, JSON.stringify(sanitized));
+    localStorage.setItem(CORRECTIVE_MAINTENANCES_KEY, JSON.stringify(records));
   } catch (err) {
-    console.error('Error saving corrective maintenances to localStorage', err);
+    console.warn('LocalStorage save quota warning for corrective maintenances, trying optimized payload:', err);
+    try {
+      // In case localStorage quota (5MB) is ever exceeded, store lightweight metadata in localStorage
+      // Full photo dataUrls are safely maintained in IndexedDB and memory
+      const sanitized = records.map((rec) => ({
+        ...rec,
+        photos: rec.photos?.map((p) => ({
+          id: p.id,
+          name: p.name,
+          dataUrl: p.dataUrl && p.dataUrl.length > 200000 ? '' : p.dataUrl,
+          size: p.size,
+          uploadedAt: p.uploadedAt,
+          isHeavyAttachment: true,
+        })) || [],
+      }));
+      localStorage.setItem(CORRECTIVE_MAINTENANCES_KEY, JSON.stringify(sanitized));
+    } catch (e) {
+      console.error('Error saving corrective maintenances to localStorage', e);
+    }
   }
 }
 

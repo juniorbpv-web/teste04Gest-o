@@ -35,7 +35,12 @@ export function exportCorrectivesToPDF(
   const totalStoppedDays = records.reduce((acc, r) => acc + (r.stoppedDays || 0), 0);
   const completedRecords = records.filter((r) => r.status === 'Concluída').length;
   const openRecords = records.filter(
-    (r) => r.status === 'Aberta' || r.status === 'Em manutenção' || r.status === 'Aguardando peça' || r.status === 'Aguardando fornecedor'
+    (r) =>
+      r.status === 'Aberta' ||
+      r.status === 'Em Análise' ||
+      r.status === 'Em manutenção' ||
+      r.status === 'Aguardando peça' ||
+      r.status === 'Aguardando fornecedor'
   ).length;
 
   // Equipment Ranking
@@ -282,6 +287,8 @@ export function exportCorrectivesToPDF(
         const val = String(data.cell.raw);
         if (val === 'Concluída') {
           data.cell.styles.textColor = [16, 185, 129];
+        } else if (val === 'Em Análise') {
+          data.cell.styles.textColor = [2, 132, 199];
         } else if (val === 'Aberta' || val === 'Em manutenção') {
           data.cell.styles.textColor = [234, 88, 12];
         } else if (val.includes('Aguardando')) {

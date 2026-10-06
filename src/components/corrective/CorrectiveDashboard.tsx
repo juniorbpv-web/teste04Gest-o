@@ -35,9 +35,11 @@ export const CorrectiveDashboard: React.FC<CorrectiveDashboardProps> = ({
   const uniqueSuppliers = new Set(records.map((r) => r.supplier).filter(Boolean)).size;
   const totalStoppedDays = records.reduce((acc, r) => acc + (r.stoppedDays || 0), 0);
   const completedCount = records.filter((r) => r.status === 'Concluída').length;
+  const analysisCount = records.filter((r) => r.status === 'Em Análise').length;
   const openCount = records.filter(
     (r) =>
       r.status === 'Aberta' ||
+      r.status === 'Em Análise' ||
       r.status === 'Em manutenção' ||
       r.status === 'Aguardando peça' ||
       r.status === 'Aguardando fornecedor'
@@ -242,7 +244,9 @@ export const CorrectiveDashboard: React.FC<CorrectiveDashboardProps> = ({
           <div className="text-2xl font-bold text-amber-600 dark:text-amber-400 font-mono">
             {openCount}
           </div>
-          <p className="text-[11px] text-slate-500 mt-1">Em atendimento / peças</p>
+          <p className="text-[11px] text-slate-500 mt-1">
+            {analysisCount > 0 ? `${analysisCount} em análise` : 'Em atendimento / peças'}
+          </p>
         </div>
       </div>
 

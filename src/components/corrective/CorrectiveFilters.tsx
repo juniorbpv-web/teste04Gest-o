@@ -99,12 +99,17 @@ export const CorrectiveFilters: React.FC<CorrectiveFiltersProps> = ({
 
   const statuses = [
     'Aberta',
+    'Em Análise',
+    'Concluída',
     'Em manutenção',
     'Aguardando peça',
     'Aguardando fornecedor',
-    'Concluída',
     'Cancelada',
   ];
+
+  const countAberta = records.filter((r) => r.status === 'Aberta').length;
+  const countEmAnalise = records.filter((r) => r.status === 'Em Análise').length;
+  const countConcluida = records.filter((r) => r.status === 'Concluída').length;
 
   const handleFieldChange = (field: keyof CorrectiveFilterState, val: string) => {
     onFilterChange({
@@ -153,15 +158,15 @@ export const CorrectiveFilters: React.FC<CorrectiveFiltersProps> = ({
           )}
         </div>
 
-        {/* Primary Filter 1: Status */}
-        <div className="w-full md:w-48">
+        {/* Primary Filter 1: Status da OS */}
+        <div className="w-full md:w-52">
           <select
             id="filter-corrective-status"
             value={filters.status}
             onChange={(e) => handleFieldChange('status', e.target.value)}
-            className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-lg text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+            className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-lg text-sm text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
           >
-            <option value="">Status: Todos</option>
+            <option value="">Status da OS: Todos</option>
             {statuses.map((st) => (
               <option key={st} value={st}>
                 {st}
@@ -214,6 +219,105 @@ export const CorrectiveFilters: React.FC<CorrectiveFiltersProps> = ({
             <span>Limpar</span>
           </button>
         )}
+      </div>
+
+      {/* Quick Status Filter Pills (Atalho Rápido para Status da OS: Aberta, Em Análise, Concluída) */}
+      <div className="flex items-center gap-2 pt-3 mt-3 border-t border-slate-100 dark:border-slate-800/80 overflow-x-auto pb-0.5">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mr-1 flex items-center gap-1.5 shrink-0">
+          <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+          Status da OS:
+        </span>
+
+        {/* Todas */}
+        <button
+          type="button"
+          onClick={() => handleFieldChange('status', '')}
+          className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
+            filters.status === ''
+              ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs ring-1 ring-slate-900/10'
+              : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+          }`}
+        >
+          <span>Todas</span>
+          <span
+            className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+              filters.status === ''
+                ? 'bg-white/20 dark:bg-black/20 text-white dark:text-slate-900'
+                : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+            }`}
+          >
+            {records.length}
+          </span>
+        </button>
+
+        {/* Aberta */}
+        <button
+          type="button"
+          onClick={() => handleFieldChange('status', 'Aberta')}
+          className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
+            filters.status === 'Aberta'
+              ? 'bg-amber-500 text-white shadow-xs ring-2 ring-amber-500/30 font-bold'
+              : 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 hover:bg-amber-100 dark:hover:bg-amber-900/40'
+          }`}
+        >
+          <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
+          <span>Aberta</span>
+          <span
+            className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+              filters.status === 'Aberta'
+                ? 'bg-white/25 text-white'
+                : 'bg-amber-200/70 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200'
+            }`}
+          >
+            {countAberta}
+          </span>
+        </button>
+
+        {/* Em Análise */}
+        <button
+          type="button"
+          onClick={() => handleFieldChange('status', 'Em Análise')}
+          className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
+            filters.status === 'Em Análise'
+              ? 'bg-sky-600 text-white shadow-xs ring-2 ring-sky-600/30 font-bold'
+              : 'bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-800/60 hover:bg-sky-100 dark:hover:bg-sky-900/40'
+          }`}
+        >
+          <span className="w-2 h-2 rounded-full bg-sky-400 shrink-0" />
+          <span>Em Análise</span>
+          <span
+            className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+              filters.status === 'Em Análise'
+                ? 'bg-white/25 text-white'
+                : 'bg-sky-200/70 dark:bg-sky-900/60 text-sky-900 dark:text-sky-200'
+            }`}
+          >
+            {countEmAnalise}
+          </span>
+        </button>
+
+        {/* Concluída */}
+        <button
+          type="button"
+          onClick={() => handleFieldChange('status', 'Concluída')}
+          className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
+            filters.status === 'Concluída'
+              ? 'bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-600/30 font-bold'
+              : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/40'
+          }`}
+        >
+          <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+          <span>Concluída</span>
+          <span
+            className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+              filters.status === 'Concluída'
+                ? 'bg-white/25 text-white'
+                : 'bg-emerald-200/70 dark:bg-emerald-900/60 text-emerald-900 dark:text-emerald-200'
+            }`}
+          >
+            {countConcluida}
+          </span>
+        </button>
       </div>
 
       {/* Advanced Filters Expandable Grid */}

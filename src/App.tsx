@@ -114,6 +114,11 @@ import {
   subscribeInvoiceFiles,
 } from './services/fuelFilesService';
 import { deleteFilesByEquipmentId } from './services/equipmentFilesService';
+import {
+  saveMultipleCorrectivePhotosToIndexedDB,
+  rehydrateCorrectivePhotosFromIndexedDB,
+  seedInitialCorrectivePhotosToIndexedDB,
+} from './services/correctiveFilesService';
 import { Navbar } from './components/Navbar';
 import { EquipmentsTab } from './components/EquipmentsTab';
 import { DailyLogTab } from './components/DailyLogTab';
@@ -297,12 +302,23 @@ export default function App() {
         (err) => console.warn('Aviso de sincronização de deduções:', err)
       );
 
+      // Seed initial corrective photos & rehydrate corrective maintenance photos from IndexedDB
+      seedInitialCorrectivePhotosToIndexedDB(INITIAL_CORRECTIVE_MAINTENANCES).catch(() => {});
+      rehydrateCorrectivePhotosFromIndexedDB(loadCorrectiveMaintenances())
+        .then((rehydrated) => {
+          if (rehydrated && rehydrated.length > 0) {
+            setCorrectiveMaintenances(rehydrated);
+          }
+        })
+        .catch((err) => console.warn('Erro ao reidratar fotos de corretivas:', err));
+
       // Subscribe to real-time corrective maintenances
       unsubCorrectives = subscribeCorrectiveMaintenances(
-        (items) => {
+        async (items) => {
           const list = items || [];
-          setCorrectiveMaintenances(list);
-          saveCorrectiveMaintenances(list);
+          const rehydrated = await rehydrateCorrectivePhotosFromIndexedDB(list);
+          setCorrectiveMaintenances(rehydrated);
+          saveCorrectiveMaintenances(rehydrated);
         },
         (err) => console.warn('Aviso de sincronização de corretivas:', err)
       );
@@ -705,7 +721,10 @@ export default function App() {
       return false;
     }
 
+    const existing = equipments.find((eq) => eq.id === updatedEq.id);
+
     const finalEq: Equipment = {
+      ...(existing || {}),
       ...updatedEq,
       code: cleanCode,
       updatedAt: new Date().toISOString(),
@@ -946,10 +965,24 @@ export default function App() {
   };
 
   const handleRestoreFuelDefaults = () => {
-    setFuelDispenses(INITIAL_FUEL_DISPENSES);
-    saveFuelDispenses(INITIAL_FUEL_DISPENSES);
-    setFuelEntries(INITIAL_FUEL_ENTRIES);
-    saveFuelEntries(INITIAL_FUEL_ENTRIES);
+    // Non-destructive safe merge: keep all existing user fuel entries/dispenses and incorporate baseline
+    setFuelDispenses((prev) => {
+      const dispMap = new Map<string, FuelDispense>();
+      INITIAL_FUEL_DISPENSES.forEach((d) => dispMap.set(d.id, d));
+      prev.forEach((d) => dispMap.set(d.id, d)); // Existing user records take precedence!
+      const merged = Array.from(dispMap.values());
+      saveFuelDispenses(merged);
+      return merged;
+    });
+
+    setFuelEntries((prev) => {
+      const entryMap = new Map<string, FuelEntry>();
+      INITIAL_FUEL_ENTRIES.forEach((e) => entryMap.set(e.id, e));
+      prev.forEach((e) => entryMap.set(e.id, e)); // Existing user records take precedence!
+      const merged = Array.from(entryMap.values());
+      saveFuelEntries(merged);
+      return merged;
+    });
 
     setCloudStatus('syncing');
     seedInitialDataIfEmpty()
@@ -957,7 +990,7 @@ export default function App() {
         setCloudStatus('connected');
         addToast(
           'success',
-          'Cargas dos 3 comboios e os 178 abastecimentos sincronizados no Firestore!',
+          'Cargas e abastecimentos sincronizados com segurança sem exclusão de dados!',
           'Combustível Sincronizado'
         );
       })
@@ -966,30 +999,79 @@ export default function App() {
         setCloudStatus('offline');
         addToast(
           'info',
-          'Base de combustível restaurada localmente.',
-          'Restauração Local'
+          'Base de combustível sincronizada localmente.',
+          'Sincronização Local'
         );
       });
   };
 
   const handleRestoreDefaults = () => {
-    const sortedLogs = sortDailyLogsAscending(INITIAL_LOGS);
-    setEquipments(INITIAL_EQUIPMENTS);
-    saveEquipments(INITIAL_EQUIPMENTS);
-    setDailyLogs(sortedLogs);
-    saveDailyLogs(sortedLogs);
-    setFuelDispenses(INITIAL_FUEL_DISPENSES);
-    saveFuelDispenses(INITIAL_FUEL_DISPENSES);
-    setFuelEntries(INITIAL_FUEL_ENTRIES);
-    saveFuelEntries(INITIAL_FUEL_ENTRIES);
-    setPreventivePlans(INITIAL_PREVENTIVE_PLANS);
-    savePreventivePlans(INITIAL_PREVENTIVE_PLANS);
-    setPreventiveRecords(INITIAL_PREVENTIVE_RECORDS);
-    savePreventiveRecords(INITIAL_PREVENTIVE_RECORDS);
-    setCorrectiveMaintenances(INITIAL_CORRECTIVE_MAINTENANCES);
-    saveCorrectiveMaintenances(INITIAL_CORRECTIVE_MAINTENANCES);
-    saveMeasurementDeductions([]);
-    setDeductionsCount(0);
+    // Non-destructive safe merge: NEVER delete or overwrite existing user data!
+    setEquipments((prev) => {
+      const map = new Map<string, Equipment>();
+      INITIAL_EQUIPMENTS.forEach((eq) => map.set(eq.id, eq));
+      prev.forEach((eq) => {
+        const existing = map.get(eq.id);
+        map.set(eq.id, existing ? { ...existing, ...eq } : eq);
+      });
+      const merged = Array.from(map.values());
+      saveEquipments(merged);
+      return merged;
+    });
+
+    setDailyLogs((prev) => {
+      const map = new Map<string, DailyLog>();
+      INITIAL_LOGS.forEach((l) => map.set(l.id, l));
+      prev.forEach((l) => map.set(l.id, l)); // User logs take precedence
+      const merged = sortDailyLogsAscending(Array.from(map.values()));
+      saveDailyLogs(merged);
+      return merged;
+    });
+
+    setFuelDispenses((prev) => {
+      const map = new Map<string, FuelDispense>();
+      INITIAL_FUEL_DISPENSES.forEach((d) => map.set(d.id, d));
+      prev.forEach((d) => map.set(d.id, d));
+      const merged = Array.from(map.values());
+      saveFuelDispenses(merged);
+      return merged;
+    });
+
+    setFuelEntries((prev) => {
+      const map = new Map<string, FuelEntry>();
+      INITIAL_FUEL_ENTRIES.forEach((e) => map.set(e.id, e));
+      prev.forEach((e) => map.set(e.id, e));
+      const merged = Array.from(map.values());
+      saveFuelEntries(merged);
+      return merged;
+    });
+
+    setPreventivePlans((prev) => {
+      const map = new Map<string, PreventivePlan>();
+      INITIAL_PREVENTIVE_PLANS.forEach((p) => map.set(p.id, p));
+      prev.forEach((p) => map.set(p.id, p));
+      const merged = Array.from(map.values());
+      savePreventivePlans(merged);
+      return merged;
+    });
+
+    setPreventiveRecords((prev) => {
+      const map = new Map<string, PreventiveRecord>();
+      INITIAL_PREVENTIVE_RECORDS.forEach((r) => map.set(r.id, r));
+      prev.forEach((r) => map.set(r.id, r));
+      const merged = Array.from(map.values());
+      savePreventiveRecords(merged);
+      return merged;
+    });
+
+    setCorrectiveMaintenances((prev) => {
+      const map = new Map<string, CorrectiveMaintenance>();
+      INITIAL_CORRECTIVE_MAINTENANCES.forEach((c) => map.set(c.id, c));
+      prev.forEach((c) => map.set(c.id, c));
+      const merged = Array.from(map.values());
+      saveCorrectiveMaintenances(merged);
+      return merged;
+    });
 
     setCloudStatus('syncing');
     restoreFirestoreDefaults()
@@ -997,8 +1079,8 @@ export default function App() {
         setCloudStatus('connected');
         addToast(
           'success',
-          'Base consolidada atualizada: 97 equipamentos, 82 apontamentos diários, 22 cargas recebidas (87.298,21 L) e 523 abastecimentos (74.581,0 L) sincronizados!',
-          'Restauração Concluída'
+          'Base consolidada sincronizada com segurança sem perda de nenhum dado já existente!',
+          'Sincronização Segura'
         );
       })
       .catch((err) => {
@@ -1006,8 +1088,8 @@ export default function App() {
         setCloudStatus('offline');
         addToast(
           'info',
-          'Sistema completo restaurado localmente para 24/09/2026 05:00.',
-          'Restauração Local'
+          'Dados consolidados localmente com segurança.',
+          'Sincronização Local'
         );
       });
   };
@@ -1503,6 +1585,14 @@ export default function App() {
       obra_id: activeObra,
       projectId: activeObra,
     };
+
+    // Always cache photos in IndexedDB to ensure photos are never lost
+    if (enrichedRecord.photos && enrichedRecord.photos.length > 0) {
+      await saveMultipleCorrectivePhotosToIndexedDB(enrichedRecord.photos).catch((err) => {
+        console.warn('Falha ao salvar fotos de corretiva no IndexedDB:', err);
+      });
+    }
+
     setCorrectiveMaintenances((prev) => {
       const idx = prev.findIndex((r) => r.id === enrichedRecord.id);
       let updated: CorrectiveMaintenance[];

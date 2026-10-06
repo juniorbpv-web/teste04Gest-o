@@ -22,7 +22,7 @@ interface CorrectiveTableProps {
   onEdit: (record: CorrectiveMaintenance) => void;
   onDelete: (id: string) => void;
   onOpenEquipmentHistory: (prefix: string) => void;
-  onSelectPhoto: (photoUrl: string, title: string) => void;
+  onSelectPhoto: (photoUrl: string, title: string, name?: string, photoId?: string) => void;
 }
 
 export const CorrectiveTable: React.FC<CorrectiveTableProps> = ({
@@ -47,6 +47,12 @@ export const CorrectiveTable: React.FC<CorrectiveTableProps> = ({
         return (
           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
             Concluída
+          </span>
+        );
+      case 'Em Análise':
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-sky-100 dark:bg-sky-950/50 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
+            Em Análise
           </span>
         );
       case 'Aberta':
@@ -117,7 +123,7 @@ export const CorrectiveTable: React.FC<CorrectiveTableProps> = ({
                 Serviço Realizado
               </th>
               <th scope="col" className="py-3 px-3 text-center whitespace-nowrap">
-                Status
+                Status da OS
               </th>
               <th scope="col" className="py-3 px-3 text-center whitespace-nowrap">
                 Parado
@@ -258,12 +264,15 @@ export const CorrectiveTable: React.FC<CorrectiveTableProps> = ({
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (r.photos && r.photos[0]) {
-                              onSelectPhoto(r.photos[0].dataUrl, `${r.osNumber} - ${r.prefix}`);
+                            if (r.photos && r.photos.length === 1) {
+                              const p = r.photos[0];
+                              onSelectPhoto(p.dataUrl || '', `${r.osNumber} - ${r.prefix}`, p.name, p.id);
+                            } else {
+                              onViewDetail(r);
                             }
                           }}
                           className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors"
-                          title="Clique para ver fotos"
+                          title="Clique para ver evidências fotográficas"
                         >
                           <Camera className="w-3.5 h-3.5" />
                           <span className="font-bold text-xs">{photoCount}</span>

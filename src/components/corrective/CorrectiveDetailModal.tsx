@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Wrench,
@@ -18,8 +18,9 @@ import {
   Trash2,
   ExternalLink,
 } from 'lucide-react';
-import { CorrectiveMaintenance } from '../../types';
+import { CorrectiveMaintenance, CorrectivePhoto } from '../../types';
 import { PhotoLightboxModal } from './PhotoLightboxModal';
+import { getCorrectivePhotoFromIndexedDB } from '../../services/correctiveFilesService';
 
 interface CorrectiveDetailModalProps {
   isOpen: boolean;
@@ -38,7 +39,30 @@ export const CorrectiveDetailModal: React.FC<CorrectiveDetailModalProps> = ({
   onDelete,
   onOpenEquipmentHistory,
 }) => {
-  const [selectedPhoto, setSelectedPhoto] = useState<{ url: string; name: string } | null>(null);
+  const [selectedPhoto, setSelectedPhoto] = useState<{ url: string; name: string; photoId?: string } | null>(null);
+  const [photosList, setPhotosList] = useState<CorrectivePhoto[]>(record?.photos || []);
+
+  useEffect(() => {
+    let active = true;
+    const current = record?.photos || [];
+    setPhotosList(current);
+
+    if (current.some((p) => !p.dataUrl)) {
+      Promise.all(
+        current.map(async (p) => {
+          if (p.dataUrl) return p;
+          const cached = await getCorrectivePhotoFromIndexedDB(p.id);
+          return cached?.dataUrl ? { ...p, dataUrl: cached.dataUrl } : p;
+        })
+      ).then((updated) => {
+        if (active) setPhotosList(updated);
+      }).catch(() => {});
+    }
+
+    return () => {
+      active = false;
+    };
+  }, [record]);
 
   if (!isOpen || !record) return null;
 
@@ -66,8 +90,10 @@ export const CorrectiveDetailModal: React.FC<CorrectiveDetailModalProps> = ({
                   <h3 className="text-xl font-bold font-mono tracking-tight text-white">{record.osNumber}</h3>
                   <span
                     className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                      isCompleted
+                      record.status === 'Concluída'
                         ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                        : record.status === 'Em Análise'
+                        ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40'
                         : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
                     }`}
                   >
@@ -315,32 +341,49 @@ export const CorrectiveDetailModal: React.FC<CorrectiveDetailModalProps> = ({
             <div>
               <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
                 <ImageIcon className="w-4 h-4 text-blue-600" />
-                Evidências Fotográficas ({record.photos?.length || 0})
+                Evidências Fotográficas ({photosList.length})
               </h4>
 
-              {!record.photos || record.photos.length === 0 ? (
+              {photosList.length === 0 ? (
                 <div className="text-center py-6 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 text-xs text-slate-400">
                   Nenhuma foto anexada a esta Ordem de Serviço.
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {record.photos.map((p) => (
-                    <div
-                      key={p.id}
-                      className="group relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 cursor-pointer aspect-video"
-                      onClick={() => setSelectedPhoto({ url: p.dataUrl, name: p.name })}
-                    >
-                      <img
-                        src={p.dataUrl}
-                        alt={p.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-2 text-white">
-                        <span className="text-[10px] text-slate-300 truncate">{p.name}</span>
-                        <span className="text-[9px] text-blue-400">Clique para ampliar</span>
+                  {photosList.map((p) => {
+                    const isPdf = p.dataUrl.startsWith('data:application/pdf') || p.name.toLowerCase().endsWith('.pdf');
+                    return (
+                      <div
+                        key={p.id}
+                        className="group relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 cursor-pointer aspect-video flex items-center justify-center"
+                        onClick={() => setSelectedPhoto({ url: p.dataUrl, name: p.name, photoId: p.id })}
+                      >
+                        {isPdf ? (
+                          <div className="flex flex-col items-center justify-center p-3 text-center w-full h-full bg-rose-50 dark:bg-rose-950/30">
+                            <FileText className="w-8 h-8 text-rose-600 mb-1" />
+                            <span className="text-[11px] font-semibold text-slate-800 dark:text-slate-200 line-clamp-1">
+                              {p.name}
+                            </span>
+                            <span className="text-[9px] text-rose-500 font-bold uppercase mt-0.5">
+                              Documento PDF
+                            </span>
+                          </div>
+                        ) : (
+                          <img
+                            src={p.dataUrl}
+                            alt={p.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-2 text-white">
+                          <span className="text-[10px] text-slate-300 truncate">{p.name}</span>
+                          <span className="text-[9px] text-blue-400">
+                            {isPdf ? 'Clique para visualizar PDF' : 'Clique para ampliar'}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -370,6 +413,7 @@ export const CorrectiveDetailModal: React.FC<CorrectiveDetailModalProps> = ({
           photoUrl={selectedPhoto.url}
           photoName={selectedPhoto.name}
           title={`${record.osNumber} - ${record.prefix}`}
+          photoId={selectedPhoto.photoId}
         />
       )}
     </>

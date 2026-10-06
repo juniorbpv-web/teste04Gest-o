@@ -408,10 +408,11 @@ export interface DeductionFilterState {
 
 export type CorrectiveStatus =
   | 'Aberta'
+  | 'Em Análise'
+  | 'Concluída'
   | 'Em manutenção'
   | 'Aguardando peça'
   | 'Aguardando fornecedor'
-  | 'Concluída'
   | 'Cancelada';
 
 export type CorrectiveFailureType =
@@ -434,6 +435,7 @@ export interface CorrectivePhoto {
   dataUrl: string; // Base64 data URL
   size?: number; // bytes
   uploadedAt: string; // ISO string
+  isHeavyAttachment?: boolean;
 }
 
 export interface CorrectiveMaintenance {

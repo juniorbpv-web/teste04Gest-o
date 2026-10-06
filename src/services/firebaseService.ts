@@ -66,6 +66,11 @@ import {
   sortDailyLogsAscending,
 } from '../utils/storage';
 import { loadInvoiceFilesFromIndexedDB } from './fuelFilesService';
+import {
+  saveMultipleCorrectivePhotosToIndexedDB,
+  saveCorrectivePhotoToIndexedDB,
+  loadAllCorrectivePhotosFromIndexedDB,
+} from './correctiveFilesService';
 
 const EQUIPMENTS_COLLECTION = 'equipments';
 const DAILY_LOGS_COLLECTION = 'daily_logs';
@@ -172,38 +177,33 @@ export async function seedInitialDataIfEmpty(): Promise<void> {
           batch.set(doc(db, EQUIPMENTS_COLLECTION, eq.id), eq);
           needsCommit = true;
         } else {
-          const targetHour = Math.max(match.eq.currentHourMeter || 0, eq.currentHourMeter || 0);
+          // Never overwrite existing user data! Only advance meters if initial has higher readings, or fill missing identifiers
+          const existingEq = match.eq;
+          const targetHour = Math.max(existingEq.currentHourMeter || 0, eq.currentHourMeter || 0);
+          const targetKm = Math.max(existingEq.currentKm || 0, eq.currentKm || 0);
 
-          const hasDiff =
-            match.eq.location !== eq.location ||
-            match.eq.supplier !== eq.supplier ||
-            match.eq.type !== eq.type ||
-            match.eq.plate !== eq.plate ||
-            match.eq.model !== eq.model ||
-            match.eq.brand !== eq.brand ||
-            (eq.currentHourMeter !== undefined && (match.eq.currentHourMeter || 0) < (eq.currentHourMeter || 0)) ||
-            (eq.currentKm !== undefined && (match.eq.currentKm || 0) < (eq.currentKm || 0)) ||
-            (eq.lastKmDate && match.eq.lastKmDate !== eq.lastKmDate) ||
-            (eq.lastHourMeterDate && match.eq.lastHourMeterDate !== eq.lastHourMeterDate);
+          const updatePayload: Record<string, any> = {};
+          let needsUpdate = false;
 
-          if (hasDiff) {
-            const updatePayload: Record<string, any> = {
-              type: eq.type,
-              plate: eq.plate,
-              prefix: eq.prefix,
-              model: eq.model,
-              brand: eq.brand,
-              supplier: eq.supplier,
-              location: eq.location,
-              code: eq.code,
-              brandModel: eq.brandModel,
-              currentHourMeter: targetHour,
-              updatedAt: new Date().toISOString(),
-            };
-            if (eq.currentKm !== undefined) updatePayload.currentKm = eq.currentKm;
-            if (eq.lastKmDate) updatePayload.lastKmDate = eq.lastKmDate;
-            if (eq.lastHourMeterDate) updatePayload.lastHourMeterDate = eq.lastHourMeterDate;
+          if (targetHour > (existingEq.currentHourMeter || 0)) {
+            updatePayload.currentHourMeter = targetHour;
+            needsUpdate = true;
+          }
+          if (targetKm > (existingEq.currentKm || 0)) {
+            updatePayload.currentKm = targetKm;
+            needsUpdate = true;
+          }
+          if (!existingEq.code && eq.code) {
+            updatePayload.code = eq.code;
+            needsUpdate = true;
+          }
+          if (!existingEq.prefix && eq.prefix) {
+            updatePayload.prefix = eq.prefix;
+            needsUpdate = true;
+          }
 
+          if (needsUpdate) {
+            updatePayload.updatedAt = new Date().toISOString();
             batch.update(doc(db, EQUIPMENTS_COLLECTION, match.id), updatePayload);
             needsCommit = true;
           }
@@ -565,18 +565,23 @@ export function subscribeEquipments(
       // Merge Firestore items with INITIAL_EQUIPMENTS so baseline equipments are never lost
       const mergedMap = new Map<string, Equipment>();
       INITIAL_EQUIPMENTS.forEach((eq) => mergedMap.set(eq.id, eq));
+      // Local equipment fallback
+      loadEquipments().forEach((eq) => {
+        if (eq && eq.id) mergedMap.set(eq.id, eq);
+      });
+      // Firestore live truth: user modifications always take precedence
       firestoreItems.forEach((eq) => {
         const official = INITIAL_EQUIPMENTS.find(
           (o) => o.id === eq.id || (o.plate && eq.plate && o.plate.toUpperCase() === eq.plate.toUpperCase())
         );
         if (official) {
           mergedMap.set(official.id, {
-            ...eq,
             ...official,
+            ...eq,
             operator: eq.operator || official.operator,
-            currentHourMeter: eq.currentHourMeter || official.currentHourMeter,
+            currentHourMeter: Math.max(official.currentHourMeter || 0, eq.currentHourMeter || 0),
             lastHourMeterDate: eq.lastHourMeterDate || official.lastHourMeterDate,
-            currentKm: eq.currentKm !== undefined ? eq.currentKm : official.currentKm,
+            currentKm: Math.max(official.currentKm || 0, eq.currentKm || 0),
             lastKmDate: eq.lastKmDate || official.lastKmDate,
           });
         } else {
@@ -686,7 +691,7 @@ export async function saveEquipmentToFirestore(equipment: Equipment): Promise<vo
   try {
     const docRef = doc(db, EQUIPMENTS_COLLECTION, equipment.id);
     const sanitized = sanitizeEquipmentForFirestore(equipment);
-    await setDoc(docRef, sanitized);
+    await setDoc(docRef, sanitized, { merge: true });
   } catch (err) {
     console.error('Failed to save equipment to Firestore:', err);
     throw err;
@@ -764,70 +769,11 @@ export async function deleteDailyLogFromFirestore(id: string): Promise<void> {
 }
 
 /**
- * Resets the Firestore database with initial demonstration fleet and logs.
+ * Safely synchronizes baseline defaults into Firestore without deleting any existing data.
  */
 export async function restoreFirestoreDefaults(): Promise<void> {
   try {
-    // 1. Fetch existing documents across all collections
-    const existingEqs = await getDocs(collection(db, EQUIPMENTS_COLLECTION));
-    const existingLogs = await getDocs(collection(db, DAILY_LOGS_COLLECTION));
-    const existingEntries = await getDocs(collection(db, FUEL_ENTRIES_COLLECTION));
-    const existingDispenses = await getDocs(collection(db, FUEL_DISPENSES_COLLECTION));
-    const existingPlans = await getDocs(collection(db, PREVENTIVE_PLANS_COLLECTION));
-    const existingRecords = await getDocs(collection(db, PREVENTIVE_RECORDS_COLLECTION));
-    const existingCorrectives = await getDocs(collection(db, CORRECTIVE_MAINTENANCES_COLLECTION));
-    const existingDeductions = await getDocs(collection(db, MEASUREMENT_DEDUCTIONS_COLLECTION));
-
-    // Delete in chunks of 400
-    let deleteBatch = writeBatch(db);
-    let opCount = 0;
-
-    const commitDeleteIfNeeded = async () => {
-      opCount++;
-      if (opCount >= 400) {
-        await deleteBatch.commit();
-        deleteBatch = writeBatch(db);
-        opCount = 0;
-      }
-    };
-
-    for (const d of existingEqs.docs) {
-      deleteBatch.delete(d.ref);
-      await commitDeleteIfNeeded();
-    }
-    for (const d of existingLogs.docs) {
-      deleteBatch.delete(d.ref);
-      await commitDeleteIfNeeded();
-    }
-    for (const d of existingEntries.docs) {
-      deleteBatch.delete(d.ref);
-      await commitDeleteIfNeeded();
-    }
-    for (const d of existingDispenses.docs) {
-      deleteBatch.delete(d.ref);
-      await commitDeleteIfNeeded();
-    }
-    for (const d of existingPlans.docs) {
-      deleteBatch.delete(d.ref);
-      await commitDeleteIfNeeded();
-    }
-    for (const d of existingRecords.docs) {
-      deleteBatch.delete(d.ref);
-      await commitDeleteIfNeeded();
-    }
-    for (const d of existingCorrectives.docs) {
-      deleteBatch.delete(d.ref);
-      await commitDeleteIfNeeded();
-    }
-    for (const d of existingDeductions.docs) {
-      deleteBatch.delete(d.ref);
-      await commitDeleteIfNeeded();
-    }
-    if (opCount > 0) {
-      await deleteBatch.commit();
-    }
-
-    // 2. Insert baseline items up to 24/09/2026 05:00
+    // Non-destructive safe upsert: NEVER delete existing user data!
     let insertBatch = writeBatch(db);
     let insertCount = 0;
 
@@ -842,43 +788,43 @@ export async function restoreFirestoreDefaults(): Promise<void> {
 
     for (const eq of INITIAL_EQUIPMENTS) {
       const ref = doc(db, EQUIPMENTS_COLLECTION, eq.id);
-      insertBatch.set(ref, eq);
+      insertBatch.set(ref, eq, { merge: true });
       await commitInsertIfNeeded();
     }
 
     for (const log of sortDailyLogsAscending(INITIAL_LOGS)) {
       const ref = doc(db, DAILY_LOGS_COLLECTION, log.id);
-      insertBatch.set(ref, log);
+      insertBatch.set(ref, log, { merge: true });
       await commitInsertIfNeeded();
     }
 
     for (const entry of INITIAL_FUEL_ENTRIES) {
       const ref = doc(db, FUEL_ENTRIES_COLLECTION, entry.id);
-      insertBatch.set(ref, entry);
+      insertBatch.set(ref, entry, { merge: true });
       await commitInsertIfNeeded();
     }
 
     for (const disp of INITIAL_FUEL_DISPENSES) {
       const ref = doc(db, FUEL_DISPENSES_COLLECTION, disp.id);
-      insertBatch.set(ref, disp);
+      insertBatch.set(ref, disp, { merge: true });
       await commitInsertIfNeeded();
     }
 
     for (const plan of INITIAL_PREVENTIVE_PLANS) {
       const ref = doc(db, PREVENTIVE_PLANS_COLLECTION, plan.id);
-      insertBatch.set(ref, plan);
+      insertBatch.set(ref, plan, { merge: true });
       await commitInsertIfNeeded();
     }
 
     for (const rec of INITIAL_PREVENTIVE_RECORDS) {
       const ref = doc(db, PREVENTIVE_RECORDS_COLLECTION, rec.id);
-      insertBatch.set(ref, rec);
+      insertBatch.set(ref, rec, { merge: true });
       await commitInsertIfNeeded();
     }
 
     for (const corr of INITIAL_CORRECTIVE_MAINTENANCES) {
       const ref = doc(db, CORRECTIVE_MAINTENANCES_COLLECTION, corr.id);
-      insertBatch.set(ref, corr);
+      insertBatch.set(ref, corr, { merge: true });
       await commitInsertIfNeeded();
     }
 
@@ -886,9 +832,9 @@ export async function restoreFirestoreDefaults(): Promise<void> {
       await insertBatch.commit();
     }
 
-    console.log('Restored entire baseline to 24/09/2026 05:00 in Firestore successfully.');
+    console.log('Baseline safely synchronized in Firestore without deleting any existing data.');
   } catch (err) {
-    console.error('Failed to restore defaults in Firestore:', err);
+    console.error('Failed to safely synchronize baseline in Firestore:', err);
     throw err;
   }
 }
@@ -1054,7 +1000,7 @@ export async function saveFuelDispenseToFirestore(dispense: FuelDispense): Promi
     for (const [k, v] of Object.entries(dispense)) {
       if (v !== undefined) sanitized[k] = v;
     }
-    await setDoc(docRef, sanitized);
+    await setDoc(docRef, sanitized, { merge: true });
   } catch (err) {
     console.error('Failed to save fuel dispense to Firestore:', err);
     throw err;
@@ -1098,7 +1044,7 @@ export async function saveFuelEntryToFirestore(entry: FuelEntry): Promise<void> 
   try {
     const docRef = doc(db, FUEL_ENTRIES_COLLECTION, entry.id);
     const payload = prepareFuelEntryForFirestore(entry, false);
-    await setDoc(docRef, payload);
+    await setDoc(docRef, payload, { merge: true });
   } catch (err) {
     console.error('Failed to save fuel entry to Firestore:', err);
     throw err;
@@ -1148,13 +1094,25 @@ export function subscribePreventivePlans(
   return onSnapshot(
     q,
     (snapshot) => {
-      const items: PreventivePlan[] = [];
+      if (snapshot.empty) {
+        console.warn('Firestore preventive plans snapshot is empty, keeping local/initial plans.');
+        const current = loadPreventivePlans();
+        onUpdate(current.length > 0 ? current : INITIAL_PREVENTIVE_PLANS);
+        return;
+      }
+      const firestorePlans: PreventivePlan[] = [];
       snapshot.forEach((docSnap) => {
-        items.push(docSnap.data() as PreventivePlan);
+        firestorePlans.push(docSnap.data() as PreventivePlan);
       });
 
-      savePreventivePlans(items);
-      onUpdate(items);
+      const planMap = new Map<string, PreventivePlan>();
+      INITIAL_PREVENTIVE_PLANS.forEach((p) => planMap.set(p.id, p));
+      loadPreventivePlans().forEach((p) => planMap.set(p.id, p));
+      firestorePlans.forEach((p) => planMap.set(p.id, p)); // Firestore takes precedence
+
+      const finalPlans = Array.from(planMap.values());
+      savePreventivePlans(finalPlans);
+      onUpdate(finalPlans);
     },
     (err) => {
       console.error('Error listening to preventive plans from Firestore:', err);
@@ -1206,13 +1164,27 @@ export function subscribePreventiveRecords(
   return onSnapshot(
     q,
     (snapshot) => {
-      const items: PreventiveRecord[] = [];
+      if (snapshot.empty) {
+        console.warn('Firestore preventive records snapshot is empty, keeping local/initial records.');
+        const current = loadPreventiveRecords();
+        onUpdate(current.length > 0 ? current : INITIAL_PREVENTIVE_RECORDS);
+        return;
+      }
+      const firestoreRecords: PreventiveRecord[] = [];
       snapshot.forEach((docSnap) => {
-        items.push(docSnap.data() as PreventiveRecord);
+        firestoreRecords.push(docSnap.data() as PreventiveRecord);
       });
 
-      savePreventiveRecords(items);
-      onUpdate(items);
+      const recMap = new Map<string, PreventiveRecord>();
+      INITIAL_PREVENTIVE_RECORDS.forEach((r) => recMap.set(r.id, r));
+      loadPreventiveRecords().forEach((r) => recMap.set(r.id, r));
+      firestoreRecords.forEach((r) => recMap.set(r.id, r)); // Firestore takes precedence
+
+      const finalRecords = Array.from(recMap.values()).sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+      savePreventiveRecords(finalRecords);
+      onUpdate(finalRecords);
     },
     (err) => {
       console.error('Error listening to preventive records from Firestore:', err);
@@ -1242,7 +1214,7 @@ export async function savePreventiveRecordToFirestore(record: PreventiveRecord):
         }
       }
     }
-    await setDoc(docRef, sanitized);
+    await setDoc(docRef, sanitized, { merge: true });
   } catch (err) {
     console.error('Failed to save preventive record to Firestore:', err);
     throw err;
@@ -1351,26 +1323,66 @@ export function subscribeCorrectiveMaintenances(
   const q = query(collection(db, CORRECTIVE_MAINTENANCES_COLLECTION));
   return onSnapshot(
     q,
-    (snapshot) => {
+    async (snapshot) => {
       if (snapshot.empty) {
         // Fallback to local storage if Firestore collection has no items yet
         const localData = loadCorrectiveMaintenances();
-        callback(localData);
+        callback(localData.length > 0 ? localData : INITIAL_CORRECTIVE_MAINTENANCES);
         return;
       }
-      const records: CorrectiveMaintenance[] = [];
+      const recordsMap = new Map<string, CorrectiveMaintenance>();
+      INITIAL_CORRECTIVE_MAINTENANCES.forEach((r) => recordsMap.set(r.id, r));
+      loadCorrectiveMaintenances().forEach((r) => recordsMap.set(r.id, r));
+
+      // Load cached photos from IndexedDB for robust rehydration
+      let cachedPhotosMap = new Map<string, string>();
+      try {
+        const idbPhotos = await loadAllCorrectivePhotosFromIndexedDB();
+        idbPhotos.forEach((cp) => {
+          if (cp.id && cp.dataUrl) {
+            cachedPhotosMap.set(cp.id, cp.dataUrl);
+          }
+        });
+      } catch {
+        // ignore IDB read error
+      }
+
       snapshot.forEach((docSnap) => {
-        // Exclude mock demo items if any existed in Firestore
-        if (!docSnap.id.startsWith('cor-00')) {
-          const data = docSnap.data() as CorrectiveMaintenance;
-          records.push({
-            ...data,
-            id: docSnap.id,
-          });
-        }
+        const remote = docSnap.data() as CorrectiveMaintenance;
+        const local = recordsMap.get(docSnap.id);
+
+        // Merge and rehydrate photos so photos are never lost or blanked
+        let photos = Array.isArray(remote.photos) ? [...remote.photos] : (local?.photos || []);
+        photos = photos.map((p) => {
+          if (!p.dataUrl) {
+            const fromIdb = cachedPhotosMap.get(p.id);
+            if (fromIdb) return { ...p, dataUrl: fromIdb };
+            const fromLocal = local?.photos?.find((lp) => lp.id === p.id || lp.name === p.name);
+            if (fromLocal?.dataUrl) return { ...p, dataUrl: fromLocal.dataUrl };
+          }
+          return p;
+        });
+
+        // Ensure photos with dataUrl are persisted in IndexedDB and memory cache
+        photos.forEach((p) => {
+          if (p && p.id && p.dataUrl) {
+            cachedPhotosMap.set(p.id, p.dataUrl);
+            saveCorrectivePhotoToIndexedDB(p).catch(() => {});
+          }
+        });
+
+        recordsMap.set(docSnap.id, {
+          ...(local || {}),
+          ...remote,
+          photos,
+          id: docSnap.id,
+        });
       });
+
       // Sort newest open date first
-      records.sort((a, b) => new Date(b.openDate).getTime() - new Date(a.openDate).getTime());
+      const records = Array.from(recordsMap.values()).sort(
+        (a, b) => new Date(b.openDate).getTime() - new Date(a.openDate).getTime()
+      );
       saveCorrectiveMaintenances(records);
       callback(records);
     },
@@ -1388,16 +1400,39 @@ export function subscribeCorrectiveMaintenances(
  */
 export async function saveCorrectiveMaintenanceToFirestore(record: CorrectiveMaintenance): Promise<void> {
   try {
+    // 1. Always persist photos into local IndexedDB
+    if (record.photos && record.photos.length > 0) {
+      await saveMultipleCorrectivePhotosToIndexedDB(record.photos).catch((err) => {
+        console.warn('IndexedDB photo cache warning:', err);
+      });
+    }
+
     const docRef = doc(db, CORRECTIVE_MAINTENANCES_COLLECTION, record.id);
     const sanitized: Record<string, any> = {};
+
     for (const [k, v] of Object.entries(record)) {
-      if (v !== undefined) {
+      if (v !== undefined && v !== null) {
         if (k === 'photos' && Array.isArray(v)) {
-          // Keep photos, sanitize oversized photos if above 250KB each
-          sanitized[k] = v.map((p: any) => ({
-            ...p,
-            dataUrl: p.dataUrl && p.dataUrl.length > 250000 ? '' : p.dataUrl,
-          }));
+          // Clean every photo object so that no undefined fields exist (preventing Firestore setDoc crash)
+          let accumulatedSize = 0;
+          sanitized.photos = v.map((p: any, idx: number) => {
+            const cleanPhoto: Record<string, any> = {
+              id: String(p.id || `photo-${Date.now()}-${idx}`),
+              name: String(p.name || `evidencia_${idx + 1}.jpg`),
+              dataUrl: String(p.dataUrl || ''),
+              size: typeof p.size === 'number' && !isNaN(p.size) ? p.size : 0,
+              uploadedAt: p.uploadedAt ? String(p.uploadedAt) : new Date().toISOString(),
+            };
+            const photoLen = cleanPhoto.dataUrl.length;
+            // Guard against document limit >750KB cumulative for Firestore
+            if (photoLen > 800000 || accumulatedSize + photoLen > 750000) {
+              cleanPhoto.dataUrl = '';
+              cleanPhoto.isHeavyAttachment = true;
+            } else {
+              accumulatedSize += photoLen;
+            }
+            return cleanPhoto;
+          });
         } else {
           sanitized[k] = v;
         }

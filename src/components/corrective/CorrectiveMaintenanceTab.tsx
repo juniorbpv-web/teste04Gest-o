@@ -71,7 +71,12 @@ export const CorrectiveMaintenanceTab: React.FC<CorrectiveMaintenanceTabProps> =
   const [detailRecord, setDetailRecord] = useState<CorrectiveMaintenance | null>(null);
   const [historyPrefix, setHistoryPrefix] = useState<string | null>(null);
 
-  const [lightboxPhoto, setLightboxPhoto] = useState<{ url: string; title: string } | null>(null);
+  const [lightboxPhoto, setLightboxPhoto] = useState<{
+    url: string;
+    title: string;
+    name?: string;
+    photoId?: string;
+  } | null>(null);
   const [pdfIncludePhotos, setPdfIncludePhotos] = useState<boolean>(true);
   const [showPdfOptionsModal, setShowPdfOptionsModal] = useState<boolean>(false);
   const [showResetConfirmModal, setShowResetConfirmModal] = useState<boolean>(false);
@@ -362,7 +367,7 @@ export const CorrectiveMaintenanceTab: React.FC<CorrectiveMaintenanceTabProps> =
           await onDeleteRecord(id);
         }}
         onOpenEquipmentHistory={(pfx) => setHistoryPrefix(pfx)}
-        onSelectPhoto={(url, title) => setLightboxPhoto({ url, title })}
+        onSelectPhoto={(url, title, name, photoId) => setLightboxPhoto({ url, title, name, photoId })}
       />
 
       {/* MODAL 1: Cadastro / Edição de Corretiva */}
@@ -419,7 +424,9 @@ export const CorrectiveMaintenanceTab: React.FC<CorrectiveMaintenanceTabProps> =
           isOpen={!!lightboxPhoto}
           onClose={() => setLightboxPhoto(null)}
           photoUrl={lightboxPhoto.url}
+          photoName={lightboxPhoto.name}
           title={lightboxPhoto.title}
+          photoId={lightboxPhoto.photoId}
         />
       )}
 
