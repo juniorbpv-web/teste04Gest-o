@@ -346,7 +346,7 @@ export const DailyLogTab: React.FC<DailyLogTabProps> = ({
   };
 
   return (
-    <div className="space-y-3 sm:space-y-4">
+    <div className="space-y-3 sm:space-y-4 w-full min-w-0">
       {/* Top Banner Card for Gestão de Frotas */}
       <div className="bg-white dark:bg-[#1a1a1a] rounded-lg p-3 sm:p-4 border border-[#dcdfe4] dark:border-[#333333] shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
@@ -682,7 +682,7 @@ export const DailyLogTab: React.FC<DailyLogTabProps> = ({
                     type="button"
                     onClick={() => addHoursToFinal(hrs)}
                     title={`Adicionar +${hrs}h ao horímetro inicial`}
-                    className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-[#f1f3f5] dark:bg-[#262626] hover:bg-amber-500/20 text-[#4b5563] dark:text-[#d1d5db] border border-[#dcdfe4] dark:border-[#333333]"
+                    className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#f1f3f5] dark:bg-[#262626] hover:bg-amber-500/20 text-[#4b5563] dark:text-[#d1d5db] border border-[#dcdfe4] dark:border-[#333333] cursor-pointer"
                   >
                     +{hrs}h
                   </button>
@@ -718,7 +718,7 @@ export const DailyLogTab: React.FC<DailyLogTabProps> = ({
           </div>
 
           {/* Third Row: Observações & Live Total Card */}
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5 sm:gap-3 items-center pt-0.5">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5 sm:gap-3 items-end pt-0.5">
             {/* Observações adicionais */}
             <div className="md:col-span-7">
               <label
@@ -740,7 +740,7 @@ export const DailyLogTab: React.FC<DailyLogTabProps> = ({
             {/* Calculated Total Display */}
             <div className="md:col-span-5">
               <div
-                className={`p-2 rounded border flex items-center justify-between transition-colors ${
+                className={`h-8 px-3 rounded border flex items-center justify-between transition-colors ${
                   calculation.error
                     ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-900 text-rose-800 dark:text-rose-200'
                     : calculation.isValid && calculation.workedHours > 0
@@ -748,11 +748,11 @@ export const DailyLogTab: React.FC<DailyLogTabProps> = ({
                     : 'bg-[#f8fafc] dark:bg-[#141414] border-[#dcdfe4] dark:border-[#333333] text-[#6b7280] dark:text-[#9ca3af]'
                 }`}
               >
-                <div>
-                  <div className="text-[10px] uppercase font-bold tracking-wider opacity-80">
-                    Total Horas Trabalhadas
-                  </div>
-                  <div className="text-[10px] opacity-75 font-mono">Horímetro Final − Inicial</div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] uppercase font-bold tracking-wider opacity-80">
+                    Total Horas Trabalhadas:
+                  </span>
+                  <span className="text-[10px] opacity-75 font-mono hidden sm:inline">(Final − Inicial)</span>
                 </div>
 
                 <div className="text-right">
@@ -761,7 +761,7 @@ export const DailyLogTab: React.FC<DailyLogTabProps> = ({
                       Inválido (Final &lt; Inicial)
                     </span>
                   ) : (
-                    <div className="font-mono-numbers font-bold text-lg sm:text-xl text-amber-600 dark:text-amber-400">
+                    <div className="font-mono-numbers font-bold text-base text-amber-600 dark:text-amber-400">
                       {formatHours(calculation.workedHours)}{' '}
                       <span className="text-xs font-normal text-[#6b7280] dark:text-[#9ca3af]">
                         h
@@ -900,7 +900,7 @@ export const DailyLogTab: React.FC<DailyLogTabProps> = ({
 
         {/* Table - Mesmo modelo do Histórico de Abastecimentos */}
         <div className="overflow-x-auto border border-[#eaecef] dark:border-[#262626] rounded-md">
-          <table className="w-full text-left text-xs border-collapse">
+          <table className="w-full min-w-[950px] text-left text-xs border-collapse">
             <thead>
               <tr className="bg-[#f8fafc] dark:bg-[#141414] text-[#4b5563] dark:text-[#9ca3af] uppercase text-[10px] font-bold tracking-wider border-b border-[#eaecef] dark:border-[#262626]">
                 <th className="p-2.5">Data</th>

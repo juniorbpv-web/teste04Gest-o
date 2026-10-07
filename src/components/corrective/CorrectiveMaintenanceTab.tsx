@@ -239,7 +239,7 @@ export const CorrectiveMaintenanceTab: React.FC<CorrectiveMaintenanceTabProps> =
   };
 
   return (
-    <div id="corretivas-realizadas-tab" className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6 animate-fadeIn">
+    <div id="corretivas-realizadas-tab" className="space-y-4 sm:space-y-5 animate-fadeIn">
       {/* Top Header Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm">
         <div className="flex items-center gap-3.5">

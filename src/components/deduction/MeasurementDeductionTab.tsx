@@ -280,7 +280,7 @@ export const MeasurementDeductionTab: React.FC<MeasurementDeductionTabProps> = (
   };
 
   return (
-    <div id="measurement-deduction-tab-root" className="space-y-6 pb-12">
+    <div id="measurement-deduction-tab-root" className="space-y-4 sm:space-y-5 pb-8 animate-fadeIn">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-5 right-5 z-50 animate-in fade-in slide-in-from-bottom-5">

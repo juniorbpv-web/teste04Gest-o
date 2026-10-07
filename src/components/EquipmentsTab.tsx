@@ -1,5 +1,13 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Equipment, EquipmentFile } from '../types';
+import {
+  Equipment,
+  EquipmentFile,
+  DailyLog,
+  PreventiveRecord,
+  CorrectiveMaintenance,
+  PreventivePlan,
+  UserRole,
+} from '../types';
 import { COMMON_EQUIPMENT_TYPES } from '../data/initialData';
 import { formatHours } from '../utils/storage';
 import { EquipmentFilesModal } from './EquipmentFilesModal';
@@ -10,6 +18,7 @@ import {
   parseEquipmentsFromExcel,
   formatDisplayDate,
 } from '../utils/equipmentExportImport';
+import { exportConsolidatedReportPDF } from '../utils/consolidatedReportPdf';
 import {
   saveEquipmentFileToIndexedDB,
   saveEquipmentFileToFirestore,
@@ -42,27 +51,37 @@ import {
   FileText,
   UploadCloud,
   FolderOpen,
+  Sparkles,
 } from 'lucide-react';
-import { UserRole } from '../types';
 
 interface EquipmentsTabProps {
   equipments: Equipment[];
+  dailyLogs?: DailyLog[];
+  preventiveRecords?: PreventiveRecord[];
+  correctiveMaintenances?: CorrectiveMaintenance[];
+  preventivePlans?: PreventivePlan[];
   onAddEquipment: (equipment: Omit<Equipment, 'id' | 'createdAt' | 'updatedAt'>) => boolean;
   onUpdateEquipment: (equipment: Equipment) => boolean;
   onDeleteEquipment: (id: string) => void;
   onRestoreDefaults: () => void;
   userRole?: UserRole;
   selectedProject?: string;
+  userName?: string;
 }
 
 export const EquipmentsTab: React.FC<EquipmentsTabProps> = ({
   equipments,
+  dailyLogs = [],
+  preventiveRecords = [],
+  correctiveMaintenances = [],
+  preventivePlans = [],
   onAddEquipment,
   onUpdateEquipment,
   onDeleteEquipment,
   onRestoreDefaults,
   userRole = 'admin',
   selectedProject = 'all',
+  userName,
 }) => {
   const isDeveloper = userRole === 'admin' || userRole === 'developer' || userRole === 'gestor';
   const isAdmin = userRole === 'admin' || userRole === 'developer';
@@ -155,6 +174,33 @@ export const EquipmentsTab: React.FC<EquipmentsTabProps> = ({
       );
     } catch (err) {
       console.error('Erro ao exportar PDF:', err);
+    }
+  };
+
+  const [isExportingConsolidated, setIsExportingConsolidated] = useState(false);
+
+  const handleExportConsolidatedPDF = () => {
+    try {
+      setIsExportingConsolidated(true);
+      const obraTitle =
+        selectedProject === 'all'
+          ? 'Todas as Obras (Visão Global)'
+          : `Obra ${selectedProject}`;
+
+      exportConsolidatedReportPDF({
+        obraLabel: obraTitle,
+        userName: userName || (userRole === 'admin' ? 'Administrador do Sistema' : 'Operador Makmo'),
+        equipments: filteredEquipments,
+        dailyLogs,
+        preventiveRecords,
+        correctiveMaintenances,
+        preventivePlans,
+      });
+    } catch (err) {
+      console.error('Erro ao gerar relatório consolidado PDF:', err);
+      alert('Ocorreu um erro ao gerar o relatório consolidado em PDF.');
+    } finally {
+      setIsExportingConsolidated(false);
     }
   };
 
@@ -496,17 +542,33 @@ export const EquipmentsTab: React.FC<EquipmentsTabProps> = ({
               <span className="hidden sm:inline">Excel</span>
             </button>
 
-            {/* Exportar PDF */}
+            {/* Exportar PDF Básico */}
             <button
               id="btn-export-equipments-pdf"
               type="button"
               onClick={handleExportPDF}
               disabled={filteredEquipments.length === 0}
-              title="Exportar relatório da base de equipamentos em PDF oficial"
+              title="Exportar relatório básico da base de equipamentos em PDF"
               className="inline-flex items-center gap-1.5 h-8 px-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-400 font-bold text-xs rounded border border-rose-500/30 transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
             >
               <FileText className="w-3.5 h-3.5 text-rose-500 shrink-0" />
               <span className="hidden sm:inline">PDF</span>
+            </button>
+
+            {/* Relatório Consolidado Corporativo (Equipamentos + Manutenções PCM em PDF) */}
+            <button
+              id="btn-export-consolidated-pdf"
+              type="button"
+              onClick={handleExportConsolidatedPDF}
+              disabled={isExportingConsolidated || filteredEquipments.length === 0}
+              title="Exportar todas as informações cadastradas de equipamentos e logs de manutenção (Preventivas PCM e Corretivas) em um único arquivo PDF consolidado com layout corporativo"
+              className="inline-flex items-center gap-1.5 h-8 px-2.5 sm:px-3 bg-[#113861] hover:bg-[#16477b] active:scale-95 text-white font-bold text-xs rounded border border-[#1b4d82] transition-all shadow-2xs cursor-pointer disabled:opacity-50"
+            >
+              <FileText className="w-3.5 h-3.5 text-[#20b4a7] shrink-0" />
+              <span>Relatório Consolidado PDF</span>
+              <span className="hidden xl:inline text-[9px] font-mono uppercase bg-[#20b4a7]/20 text-[#20b4a7] border border-[#20b4a7]/30 px-1 py-0.2 rounded font-bold">
+                Frota + PCM
+              </span>
             </button>
 
             {/* Importar Excel */}

@@ -21,6 +21,9 @@ import {
   Shield,
   Eye,
   Settings,
+  Mail,
+  Menu,
+  PanelLeft,
 } from 'lucide-react';
 import { MakmoLogo } from './MakmoLogo';
 import { OverdueNotificationBell, OverduePreventiveItem } from './OverdueNotificationBell';
@@ -51,7 +54,11 @@ interface NavbarProps {
   onOpenProjectSelector?: () => void;
   canSwitchProject?: boolean;
   onOpenAdminManagement?: () => void;
+  onOpenGmailIntegration?: () => void;
   onLogout?: () => void;
+  onToggleSidebar?: () => void;
+  isSidebarCollapsed?: boolean;
+  onToggleSidebarCollapse?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -80,7 +87,11 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenProjectSelector,
   canSwitchProject = false,
   onOpenAdminManagement,
+  onOpenGmailIntegration,
   onLogout,
+  onToggleSidebar,
+  isSidebarCollapsed = false,
+  onToggleSidebarCollapse,
 }) => {
   const effectiveRole = appUser?.role || currentUser?.role || 'user';
   const effectiveName = appUser?.name || currentUser?.name || 'Usuário';
@@ -126,8 +137,34 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="max-w-7xl mx-auto px-2 sm:px-4">
         {/* Top Header Row - High Density compact bar */}
         <div className="flex items-center justify-between h-12 sm:h-13 gap-2">
-          {/* Logo & Brand */}
+          {/* Logo & Brand & Sidebar Trigger */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Mobile Sidebar Open Button */}
+            {onToggleSidebar && (
+              <button
+                type="button"
+                id="btn-open-sidebar-mobile"
+                onClick={onToggleSidebar}
+                className="lg:hidden p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:text-amber-500 hover:border-amber-500/50 transition-colors cursor-pointer shrink-0"
+                title="Abrir painel lateral de módulos"
+              >
+                <Menu className="w-5 h-5 text-amber-500" />
+              </button>
+            )}
+
+            {/* Desktop Sidebar Toggle Collapse Button */}
+            {onToggleSidebarCollapse && (
+              <button
+                type="button"
+                id="btn-toggle-sidebar-desktop"
+                onClick={onToggleSidebarCollapse}
+                className="hidden lg:flex p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:text-amber-500 hover:border-amber-500/50 transition-colors cursor-pointer shrink-0"
+                title={isSidebarCollapsed ? 'Expandir painel lateral' : 'Recolher painel lateral'}
+              >
+                <PanelLeft className="w-4 h-4 text-amber-500" />
+              </button>
+            )}
+
             <div className="flex items-center py-0.5">
               <MakmoLogo className="h-6.5 sm:h-8 w-auto transition-transform hover:scale-[1.02]" />
             </div>
@@ -233,6 +270,20 @@ export const Navbar: React.FC<NavbarProps> = ({
               onSelectEquipment={onSelectOverdueEquipment || (() => {})}
             />
 
+            {/* Botão Integração Gmail (Exclusivo Perfil Admin) */}
+            {effectiveRole === 'admin' && onOpenGmailIntegration && (
+              <button
+                type="button"
+                id="btn-gmail-integration"
+                onClick={onOpenGmailIntegration}
+                title="Configurar Integração Gmail e Envio Automático às 06:00 (Apenas Perfil Admin)"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-lg border border-amber-500/40 bg-amber-500/15 hover:bg-amber-500/25 text-amber-900 dark:text-amber-300 transition-all h-7.5 shadow-2xs cursor-pointer"
+              >
+                <Mail className="w-3.5 h-3.5 text-amber-500" />
+                <span className="hidden sm:inline">Gmail (06:00)</span>
+              </button>
+            )}
+
             {/* CSV Export button */}
             <button
               id="btn-export-csv-header"
@@ -274,13 +325,19 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
 
-        {/* Tab Navigation - High Density Compact Bar */}
-        <div className="flex items-center border-t border-[#eaecef] dark:border-[#262626] -mb-px">
+        {/* Tab Navigation - High Density Compact Bar with perfect alignment & smooth scroll */}
+        <nav
+          aria-label="Abas do Sistema"
+          className={`${
+            isSidebarCollapsed ? 'flex' : 'flex lg:hidden'
+          } items-center overflow-x-auto scrollbar-none border-t border-[#eaecef] dark:border-[#262626] -mb-px w-full`}
+        >
           {/* Aba 1: Base de Dados */}
           <button
             id="tab-btn-database"
+            type="button"
             onClick={() => setActiveTab('database')}
-            className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 py-2 px-3 sm:px-4 text-xs font-semibold border-b-2 transition-all ${
+            className={`h-10 sm:h-10.5 px-3 sm:px-4 shrink-0 whitespace-nowrap flex items-center justify-center gap-1.5 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
               activeTab === 'database'
                 ? 'border-amber-500 text-amber-600 dark:text-amber-400 bg-amber-500/10 font-bold'
                 : 'border-transparent text-[#4b5563] dark:text-[#9ca3af] hover:text-[#111827] dark:hover:text-[#f3f4f6] hover:border-neutral-400 dark:hover:border-neutral-600'
@@ -289,7 +346,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <Database className="w-3.5 h-3.5 shrink-0" />
             <span>Base de Dados</span>
             <span
-              className={`text-[10px] font-mono px-1.5 py-0.2 rounded font-bold ${
+              className={`inline-flex items-center justify-center text-[10px] font-mono px-1.5 py-0.5 rounded font-bold leading-none shrink-0 ${
                 activeTab === 'database'
                   ? 'bg-amber-500 text-black'
                   : 'bg-[#e5e7eb] text-[#374151] dark:bg-[#262626] dark:text-[#d1d5db]'
@@ -302,9 +359,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Aba 2: Gestão de Frotas */}
           <button
             id="tab-btn-daily-log"
+            type="button"
             onClick={() => setActiveTab('daily-log')}
             title="Gestão de Frotas - Apontamento de Parte Diária"
-            className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 py-2 px-3 sm:px-4 text-xs font-semibold border-b-2 transition-all ${
+            className={`h-10 sm:h-10.5 px-3 sm:px-4 shrink-0 whitespace-nowrap flex items-center justify-center gap-1.5 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
               activeTab === 'daily-log'
                 ? 'border-amber-500 text-amber-600 dark:text-amber-400 bg-amber-500/10 font-bold'
                 : 'border-transparent text-[#4b5563] dark:text-[#9ca3af] hover:text-[#111827] dark:hover:text-[#f3f4f6] hover:border-neutral-400 dark:hover:border-neutral-600'
@@ -314,7 +372,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span>Gestão De Frotas</span>
             {logCount > 0 && (
               <span
-                className={`text-[10px] font-mono px-1.5 py-0.2 rounded font-bold ${
+                className={`inline-flex items-center justify-center text-[10px] font-mono px-1.5 py-0.5 rounded font-bold leading-none shrink-0 ${
                   activeTab === 'daily-log'
                     ? 'bg-amber-500 text-black'
                     : 'bg-[#e5e7eb] text-[#374151] dark:bg-[#262626] dark:text-[#d1d5db]'
@@ -328,9 +386,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Aba 3: Gestão de Combustível */}
           <button
             id="tab-btn-fuel-control"
+            type="button"
             onClick={() => setActiveTab('fuel-control')}
             title="Gestão de Combustível - Controle de Abastecimentos e Entradas"
-            className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 py-2 px-3 sm:px-4 text-xs font-semibold border-b-2 transition-all ${
+            className={`h-10 sm:h-10.5 px-3 sm:px-4 shrink-0 whitespace-nowrap flex items-center justify-center gap-1.5 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
               activeTab === 'fuel-control'
                 ? 'border-amber-500 text-amber-600 dark:text-amber-400 bg-amber-500/10 font-bold'
                 : 'border-transparent text-[#4b5563] dark:text-[#9ca3af] hover:text-[#111827] dark:hover:text-[#f3f4f6] hover:border-neutral-400 dark:hover:border-neutral-600'
@@ -340,7 +399,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span>Gestão De Combustível</span>
             {fuelDispenseCount !== undefined && fuelDispenseCount > 0 && (
               <span
-                className={`text-[10px] font-mono px-1.5 py-0.2 rounded font-bold ${
+                className={`inline-flex items-center justify-center text-[10px] font-mono px-1.5 py-0.5 rounded font-bold leading-none shrink-0 ${
                   activeTab === 'fuel-control'
                     ? 'bg-amber-500 text-black'
                     : 'bg-[#e5e7eb] text-[#374151] dark:bg-[#262626] dark:text-[#d1d5db]'
@@ -354,9 +413,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Aba 4: Arquivos / Notas Fiscais */}
           <button
             id="tab-btn-invoices"
+            type="button"
             onClick={() => setActiveTab('invoices')}
             title="Arquivos e Notas Fiscais de Recebimento de Combustível"
-            className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 py-2 px-3 sm:px-4 text-xs font-semibold border-b-2 transition-all ${
+            className={`h-10 sm:h-10.5 px-3 sm:px-4 shrink-0 whitespace-nowrap flex items-center justify-center gap-1.5 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
               activeTab === 'invoices'
                 ? 'border-amber-500 text-amber-600 dark:text-amber-400 bg-amber-500/10 font-bold'
                 : 'border-transparent text-[#4b5563] dark:text-[#9ca3af] hover:text-[#111827] dark:hover:text-[#f3f4f6] hover:border-neutral-400 dark:hover:border-neutral-600'
@@ -366,7 +426,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span>Arquivos / Notas Fiscais</span>
             {invoiceFileCount !== undefined && invoiceFileCount > 0 && (
               <span
-                className={`text-[10px] font-mono px-1.5 py-0.2 rounded font-bold ${
+                className={`inline-flex items-center justify-center text-[10px] font-mono px-1.5 py-0.5 rounded font-bold leading-none shrink-0 ${
                   activeTab === 'invoices'
                     ? 'bg-amber-500 text-black'
                     : 'bg-[#e5e7eb] text-[#374151] dark:bg-[#262626] dark:text-[#d1d5db]'
@@ -380,9 +440,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Aba 5: Controle de Preventivas (PCM) */}
           <button
             id="tab-btn-preventive-maintenance"
+            type="button"
             onClick={() => setActiveTab('preventive-maintenance')}
             title="Controle de Manutenção Preventiva de Equipamentos e Veículos (PCM)"
-            className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 py-2 px-3 sm:px-4 text-xs font-semibold border-b-2 transition-all ${
+            className={`h-10 sm:h-10.5 px-3 sm:px-4 shrink-0 whitespace-nowrap flex items-center justify-center gap-1.5 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
               activeTab === 'preventive-maintenance'
                 ? 'border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-500/10 font-bold'
                 : 'border-transparent text-[#4b5563] dark:text-[#9ca3af] hover:text-[#111827] dark:hover:text-[#f3f4f6] hover:border-neutral-400 dark:hover:border-neutral-600'
@@ -391,11 +452,11 @@ export const Navbar: React.FC<NavbarProps> = ({
             <Wrench className="w-3.5 h-3.5 shrink-0 text-blue-500" />
             <span>Controle de Preventivas</span>
             {preventiveOverdueCount !== undefined && preventiveOverdueCount > 0 ? (
-              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded font-extrabold bg-rose-500 text-white animate-pulse">
+              <span className="inline-flex items-center justify-center text-[10px] font-mono px-1.5 py-0.5 rounded font-extrabold leading-none shrink-0 bg-rose-500 text-white animate-pulse">
                 {preventiveOverdueCount}
               </span>
             ) : (
-              <span className="text-[9px] uppercase font-bold tracking-wider px-1 py-0.2 rounded bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+              <span className="inline-flex items-center justify-center text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded leading-none shrink-0 bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
                 PCM
               </span>
             )}
@@ -404,9 +465,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Aba 6: Desconto em Medição */}
           <button
             id="tab-btn-measurement-deduction"
+            type="button"
             onClick={() => setActiveTab('measurement-deduction')}
             title="Desconto em Medição - Paralisações de Equipamentos e Deduções Contratuais"
-            className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 py-2 px-3 sm:px-4 text-xs font-semibold border-b-2 transition-all ${
+            className={`h-10 sm:h-10.5 px-3 sm:px-4 shrink-0 whitespace-nowrap flex items-center justify-center gap-1.5 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
               activeTab === 'measurement-deduction'
                 ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 font-bold'
                 : 'border-transparent text-[#4b5563] dark:text-[#9ca3af] hover:text-[#111827] dark:hover:text-[#f3f4f6] hover:border-neutral-400 dark:hover:border-neutral-600'
@@ -416,7 +478,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span>Desconto em Medição</span>
             {deductionCount !== undefined && deductionCount > 0 ? (
               <span
-                className={`text-[10px] font-mono px-1.5 py-0.2 rounded font-bold ${
+                className={`inline-flex items-center justify-center text-[10px] font-mono px-1.5 py-0.5 rounded font-bold leading-none shrink-0 ${
                   activeTab === 'measurement-deduction'
                     ? 'bg-emerald-500 text-white'
                     : 'bg-[#e5e7eb] text-[#374151] dark:bg-[#262626] dark:text-[#d1d5db]'
@@ -425,7 +487,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {deductionCount}
               </span>
             ) : (
-              <span className="text-[9px] uppercase font-bold tracking-wider px-1 py-0.2 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+              <span className="inline-flex items-center justify-center text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded leading-none shrink-0 bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
                 NOVO
               </span>
             )}
@@ -434,9 +496,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Aba 7: Corretivas Realizadas */}
           <button
             id="tab-btn-corrective-maintenance"
+            type="button"
             onClick={() => setActiveTab('corrective-maintenance')}
             title="Corretivas Realizadas - Histórico, Ordens de Serviço e Fotos"
-            className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 py-2 px-3 sm:px-4 text-xs font-semibold border-b-2 transition-all ${
+            className={`h-10 sm:h-10.5 px-3 sm:px-4 shrink-0 whitespace-nowrap flex items-center justify-center gap-1.5 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
               activeTab === 'corrective-maintenance'
                 ? 'border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-500/10 font-bold'
                 : 'border-transparent text-[#4b5563] dark:text-[#9ca3af] hover:text-[#111827] dark:hover:text-[#f3f4f6] hover:border-neutral-400 dark:hover:border-neutral-600'
@@ -446,7 +509,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span>Corretivas Realizadas</span>
             {correctiveCount !== undefined && correctiveCount > 0 ? (
               <span
-                className={`text-[10px] font-mono px-1.5 py-0.2 rounded font-bold ${
+                className={`inline-flex items-center justify-center text-[10px] font-mono px-1.5 py-0.5 rounded font-bold leading-none shrink-0 ${
                   activeTab === 'corrective-maintenance'
                     ? 'bg-blue-600 text-white'
                     : 'bg-[#e5e7eb] text-[#374151] dark:bg-[#262626] dark:text-[#d1d5db]'
@@ -455,12 +518,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {correctiveCount}
               </span>
             ) : (
-              <span className="text-[9px] uppercase font-bold tracking-wider px-1 py-0.2 rounded bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
+              <span className="inline-flex items-center justify-center text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded leading-none shrink-0 bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
                 NOVO
               </span>
             )}
           </button>
-        </div>
+        </nav>
       </div>
     </header>
   );

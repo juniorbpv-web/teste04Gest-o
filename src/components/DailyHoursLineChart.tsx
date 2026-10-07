@@ -249,7 +249,7 @@ export const DailyHoursLineChart: React.FC<DailyHoursLineChartProps> = ({ logs }
       </div>
 
       {/* Recharts Line Chart Container */}
-      <div className="h-64 sm:h-72 w-full pt-2">
+      <div className="h-64 sm:h-72 w-full pt-2 min-w-0 overflow-hidden">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData} margin={{ top: 10, right: 15, left: -10, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:opacity-15" />

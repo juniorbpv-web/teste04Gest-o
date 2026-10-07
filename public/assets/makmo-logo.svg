@@ -2,22 +2,22 @@
   <!-- Brand Definitions -->
   <defs>
     <style>
-      .navy-fill { fill: #0f2b4c; }
+      .navy-fill { fill: #113861; }
       .teal-fill { fill: #20b4a7; }
       .teal-stroke { stroke: #20b4a7; }
-      .navy-stroke { stroke: #0f2b4c; }
+      .navy-stroke { stroke: #113861; }
       .infra-text {
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
         font-weight: 400;
         letter-spacing: 0.42em;
         font-size: 24px;
-        fill: #0f2b4c;
+        fill: #113861;
       }
       .macchina-text {
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
         font-weight: 700;
         font-size: 15px;
-        fill: #0f2b4c;
+        fill: #113861;
       }
     </style>
   </defs>

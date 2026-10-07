@@ -9,9 +9,10 @@ import {
   HelpCircle,
   X,
   AlertCircle,
-  Truck,
+  ShieldCheck,
   CheckCircle2,
 } from 'lucide-react';
+import { MakmoLogo } from './MakmoLogo';
 
 interface LoginScreenProps {
   users: AppUser[];
@@ -99,22 +100,49 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ users, onLoginSuccess 
   }, [usernameOrEmail, users]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-zinc-900 to-black text-slate-100 flex flex-col justify-center items-center p-4">
+    <div className="min-h-screen relative flex flex-col justify-center items-center p-4 overflow-hidden bg-[#0a111e] text-slate-100">
+      {/* Background Image: Malha Logística Makmo */}
+      <div
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat pointer-events-none opacity-30 mix-blend-screen transition-opacity"
+        style={{
+          backgroundImage: `url('/assets/makmo_fundo_3_malha_logistica.jpg')`,
+        }}
+      />
+
+      {/* Architectural Atmospheric Vignettes & Grid */}
+      <div className="absolute inset-0 pointer-events-none bg-radial from-transparent via-[#0a111e]/60 to-[#05080f]/95" />
+      <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-[1200px] h-[450px] bg-[radial-gradient(ellipse_at_center,rgba(245,158,11,0.08),transparent_70%)] pointer-events-none" />
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none" />
+      <div className="absolute -bottom-48 right-0 w-[600px] h-[600px] bg-[radial-gradient(circle_at_center,rgba(37,99,235,0.06),transparent_70%)] pointer-events-none" />
+
       {/* Container */}
-      <div className="w-full max-w-md bg-zinc-900/90 backdrop-blur-md border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden">
-        {/* Header / Brand */}
-        <div className="bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600 p-6 text-black text-center relative">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-black/10 rounded-2xl mb-3 shadow-inner">
-            <Truck className="w-8 h-8 text-black" />
+      <div className="relative z-10 w-full max-w-md bg-zinc-900/90 backdrop-blur-md border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden">
+        {/* Header / Brand with Official Makmo Logo */}
+        <div className="bg-[#113861] p-6 text-center text-white relative overflow-hidden border-b border-[#1b4d82]">
+          {/* Subtle brand geometry highlights */}
+          <div className="absolute -top-12 -right-12 w-36 h-36 bg-[#20b4a7]/20 rounded-full blur-xl pointer-events-none" />
+          <div className="absolute -bottom-12 -left-12 w-36 h-36 bg-[#0a233d]/70 rounded-full blur-xl pointer-events-none" />
+
+          {/* Official Logo Plaque on White Container matching official asset MK02 */}
+          <div className="relative inline-block bg-white px-6 py-3.5 rounded-2xl shadow-xl border border-white/50 mb-3 mx-auto">
+            <MakmoLogo
+              className="h-9 sm:h-11 w-auto"
+              theme="light"
+              showSubtitle={true}
+              showSubBrand={true}
+            />
           </div>
-          <h1 className="text-2xl font-black font-industrial tracking-wider uppercase">
-            MAKMO EQUIPAMENTOS
+
+          <h1 className="text-xl sm:text-2xl font-black font-industrial tracking-wider uppercase text-white drop-shadow-xs">
+            GESTÃO DE FROTAS & PCM
           </h1>
-          <p className="text-xs font-semibold tracking-widest uppercase opacity-90 mt-1">
-            Gestão de Frotas, Parte Diária e PCM
+          <p className="text-xs font-semibold tracking-wider text-slate-200 mt-1">
+            Controle de Obras, Combustível, Preventivas & Medição
           </p>
-          <div className="inline-block mt-2 bg-black/20 text-black text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-            Autenticação & Controle de Acesso
+
+          <div className="inline-flex items-center gap-1.5 mt-2.5 bg-[#20b4a7]/20 border border-[#20b4a7]/40 text-[#20b4a7] text-[10px] font-bold px-3 py-0.5 rounded-full uppercase tracking-wider backdrop-blur-xs">
+            <ShieldCheck className="w-3.5 h-3.5 text-[#20b4a7]" />
+            <span>Autenticação & Controle de Acesso</span>
           </div>
         </div>
 
@@ -146,7 +174,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ users, onLoginSuccess 
                     if (errorMessage) setErrorMessage(null);
                   }}
                   placeholder="ex: admin ou seu.email@makmo.com.br"
-                  className="w-full bg-zinc-950 border border-zinc-750 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-zinc-500 transition-all outline-hidden"
+                  className="w-full bg-zinc-950 border border-zinc-750 focus:border-[#20b4a7] focus:ring-1 focus:ring-[#20b4a7] rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-zinc-500 transition-all outline-hidden"
                   autoComplete="username"
                   autoFocus
                 />
@@ -170,7 +198,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ users, onLoginSuccess 
                     if (errorMessage) setErrorMessage(null);
                   }}
                   placeholder={isAdminSelected ? '••••••••' : 'Digite sua senha...'}
-                  className="w-full bg-zinc-950 border border-zinc-750 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 rounded-xl pl-10 pr-10 py-2.5 text-sm text-white placeholder-zinc-500 transition-all outline-hidden font-mono"
+                  className="w-full bg-zinc-950 border border-zinc-750 focus:border-[#20b4a7] focus:ring-1 focus:ring-[#20b4a7] rounded-xl pl-10 pr-10 py-2.5 text-sm text-white placeholder-zinc-500 transition-all outline-hidden font-mono"
                   autoComplete="current-password"
                 />
                 {!isAdminSelected && (
@@ -192,7 +220,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ users, onLoginSuccess 
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 rounded-sm bg-zinc-950 border-zinc-700 text-amber-500 focus:ring-amber-500 focus:ring-offset-zinc-900"
+                  className="w-4 h-4 rounded-sm bg-zinc-950 border-zinc-700 text-[#20b4a7] focus:ring-[#20b4a7] focus:ring-offset-zinc-900"
                 />
                 <span>Lembrar meu usuário</span>
               </label>
@@ -200,7 +228,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ users, onLoginSuccess 
               <button
                 type="button"
                 onClick={() => setShowForgotModal(true)}
-                className="text-amber-400 hover:text-amber-300 hover:underline font-semibold"
+                className="text-[#20b4a7] hover:text-[#2dd4c4] hover:underline font-semibold"
               >
                 Esqueci minha senha
               </button>
@@ -210,10 +238,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ users, onLoginSuccess 
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full mt-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 active:scale-[0.99] text-black font-bold py-3 rounded-xl transition-all shadow-lg shadow-amber-500/10 flex items-center justify-center gap-2 font-industrial tracking-wider uppercase disabled:opacity-50 cursor-pointer"
+              className="w-full mt-2 bg-gradient-to-r from-[#113861] via-[#16477b] to-[#20b4a7] hover:from-[#0d2f54] hover:to-[#1aa295] active:scale-[0.99] text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-[#113861]/40 flex items-center justify-center gap-2 font-industrial tracking-wider uppercase disabled:opacity-50 cursor-pointer"
             >
               {isSubmitting ? (
-                <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
                 <>
                   <Shield className="w-4 h-4" />
@@ -240,10 +268,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ users, onLoginSuccess 
                   key={u.id}
                   type="button"
                   onClick={() => handleQuickFill(u)}
-                  className="text-left p-2 rounded-lg bg-zinc-950/70 hover:bg-zinc-800/80 border border-zinc-800 hover:border-amber-500/50 transition-all text-xs group"
+                  className="text-left p-2 rounded-lg bg-zinc-950/70 hover:bg-zinc-800/80 border border-zinc-800 hover:border-[#20b4a7]/50 transition-all text-xs group"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-white capitalize text-[11px] group-hover:text-amber-400 transition-colors">
+                    <span className="font-bold text-white capitalize text-[11px] group-hover:text-[#20b4a7] transition-colors">
                       {u.role}
                     </span>
                     <span className="text-[9px] font-mono text-zinc-400">
@@ -263,7 +291,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ users, onLoginSuccess 
 
         {/* Footer */}
         <div className="bg-zinc-950 px-6 py-3 border-t border-zinc-800/80 text-center text-[11px] text-zinc-500">
-          Makmo Construções e Terraplenagem &bull; Sistema Integrado
+          Makmo Infraestrutura &bull; Sistema Integrado de Gestão
         </div>
       </div>
 
@@ -278,7 +306,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ users, onLoginSuccess 
               <X className="w-5 h-5" />
             </button>
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+              <div className="w-10 h-10 rounded-xl bg-[#20b4a7]/15 border border-[#20b4a7]/30 flex items-center justify-center text-[#20b4a7]">
                 <HelpCircle className="w-5 h-5" />
               </div>
               <div>
@@ -290,13 +318,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ users, onLoginSuccess 
             <div className="space-y-3 text-xs text-zinc-300 leading-relaxed bg-zinc-950 p-4 rounded-xl border border-zinc-800">
               <p>
                 Por segurança, a redefinição de senhas de operadores e gestores é gerenciada diretamente pelo{' '}
-                <strong className="text-amber-400">Administrador do Sistema</strong>.
+                <strong className="text-[#20b4a7]">Administrador do Sistema</strong>.
               </p>
               <div className="pt-2 border-t border-zinc-800 space-y-1 font-mono text-[11px] text-zinc-400">
                 <div>&bull; <strong>Administrador:</strong> Senha confidencial protegida (acesso restrito)</div>
-                <div>&bull; <strong>Gestor:</strong> usuário <code className="text-amber-300">gestor</code> / senha <code className="text-amber-300">gestor123</code></div>
-                <div>&bull; <strong>Controlador:</strong> usuário <code className="text-amber-300">controlador</code> / senha <code className="text-amber-300">controlador123</code></div>
-                <div>&bull; <strong>Visualizador:</strong> usuário <code className="text-amber-300">visualizador</code> / senha <code className="text-amber-300">visualizador123</code></div>
+                <div>&bull; <strong>Gestor:</strong> usuário <code className="text-[#20b4a7]">gestor</code> / senha <code className="text-[#20b4a7]">gestor123</code></div>
+                <div>&bull; <strong>Controlador:</strong> usuário <code className="text-[#20b4a7]">controlador</code> / senha <code className="text-[#20b4a7]">controlador123</code></div>
+                <div>&bull; <strong>Visualizador:</strong> usuário <code className="text-[#20b4a7]">visualizador</code> / senha <code className="text-[#20b4a7]">visualizador123</code></div>
               </div>
             </div>
 
@@ -304,7 +332,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ users, onLoginSuccess 
               <button
                 type="button"
                 onClick={() => setShowForgotModal(false)}
-                className="bg-amber-500 hover:bg-amber-400 text-black font-bold px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-colors"
+                className="bg-[#113861] hover:bg-[#16477b] text-white font-bold px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-colors"
               >
                 Entendi, voltar
               </button>

@@ -1,8 +1,17 @@
 import React from 'react';
 
+export const MAKMO_BRAND = {
+  navy: '#113861', // Azul Marinho Oficial Makmo
+  teal: '#20b4a7', // Verde Água / Turquesa Oficial Makmo
+  navyDark: '#0a233d',
+  navyLight: '#1b4d82',
+  tealLight: '#2dd4c4',
+  tealDark: '#178a7f',
+};
+
 interface MakmoLogoProps {
   className?: string;
-  theme?: 'light' | 'dark' | 'auto';
+  theme?: 'light' | 'dark' | 'auto' | 'brand';
   showSubtitle?: boolean;
   showSubBrand?: boolean;
   compact?: boolean;
@@ -15,9 +24,24 @@ export const MakmoLogo: React.FC<MakmoLogoProps> = ({
   showSubBrand = true,
   compact = false,
 }) => {
-  // Determine fill colors
-  const isDarkClass = theme === 'dark' ? 'fill-slate-100' : theme === 'light' ? 'fill-[#0f2b4c]' : 'fill-[#0f2b4c] dark:fill-slate-100';
-  const textClass = theme === 'dark' ? 'fill-slate-200' : theme === 'light' ? 'fill-[#0f2b4c]' : 'fill-[#0f2b4c] dark:fill-slate-200';
+  // Standardized official brand colors
+  // Light / Brand: Authentic Navy Blue #113861 + Teal #20b4a7
+  // Dark: Crisp White #ffffff + Teal #20b4a7
+  // Auto: Switches based on system / Tailwind dark mode
+  const isDarkClass =
+    theme === 'brand' || theme === 'light'
+      ? 'fill-[#113861]'
+      : theme === 'dark'
+        ? 'fill-white'
+        : 'fill-[#113861] dark:fill-white';
+
+  const textClass =
+    theme === 'brand' || theme === 'light'
+      ? 'fill-[#113861]'
+      : theme === 'dark'
+        ? 'fill-slate-100'
+        : 'fill-[#113861] dark:fill-slate-100';
+
   const tealFill = 'fill-[#20b4a7]';
 
   if (compact) {

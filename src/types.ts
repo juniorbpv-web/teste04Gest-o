@@ -496,5 +496,35 @@ export interface CorrectiveFilterState {
   searchTerm: string;
 }
 
+// ==========================================
+// INTEGRAÇÃO GMAIL - RELATÓRIOS AUTOMÁTICOS (06:00)
+// ==========================================
+
+export interface GmailIntegrationConfig {
+  enabled: boolean;
+  sendHour: number; // 6 (06:00 da manhã)
+  sendMinute: number; // 0
+  primaryEmail: string; // 'roberto.junior@makmo.com.br'
+  additionalEmails: string[]; // Lista de e-mails adicionais gerenciados apenas pelo admin
+  lastSentDate?: string; // 'YYYY-MM-DD'
+  lastSentAt?: string; // ISO string
+  lastStatus?: 'success' | 'error' | 'idle';
+  lastLog?: string;
+  senderEmail?: string;
+}
+
+export interface GmailSendResult {
+  success: boolean;
+  message: string;
+  messageId?: string;
+  recipients?: string[];
+  sentAt?: string;
+  details?: {
+    totalEquipments: number;
+    totalConvoys: number;
+    obrasCount: number;
+  };
+}
+
 
 

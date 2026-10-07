@@ -52,6 +52,7 @@ import {
   saveMeasurementDeductions,
   loadCorrectiveMaintenances,
   saveCorrectiveMaintenances,
+  getTodayDateString,
 } from './utils/storage';
 import { exportFuelReportToExcel } from './utils/excelFuelExport';
 import { calculateEquipmentPreventive, createDefaultPlanForEquipment } from './utils/preventiveUtils';
@@ -120,6 +121,7 @@ import {
   seedInitialCorrectivePhotosToIndexedDB,
 } from './services/correctiveFilesService';
 import { Navbar } from './components/Navbar';
+import { SidebarNav } from './components/SidebarNav';
 import { EquipmentsTab } from './components/EquipmentsTab';
 import { DailyLogTab } from './components/DailyLogTab';
 import { FuelControlTab } from './components/FuelControlTab';
@@ -127,6 +129,12 @@ import { FuelInvoicesTab } from './components/FuelInvoicesTab';
 import { PreventiveMaintenanceTab } from './components/PreventiveMaintenanceTab';
 import { MeasurementDeductionTab } from './components/deduction/MeasurementDeductionTab';
 import { CorrectiveMaintenanceTab } from './components/corrective/CorrectiveMaintenanceTab';
+import { GmailIntegrationModal } from './components/GmailIntegrationModal';
+import {
+  sendDailyFleetReport,
+  loadGmailConfig,
+  getGmailAccessToken,
+} from './services/gmailService';
 import { ToastContainer, ToastMessage } from './components/Toast';
 import { MakmoLogo } from './components/MakmoLogo';
 
@@ -139,6 +147,7 @@ export default function App() {
   const [session, setSession] = useState<CurrentSession | null>(loadCurrentSession);
   const [isProjectSelectorOpen, setIsProjectSelectorOpen] = useState(false);
   const [isAdminManagementOpen, setIsAdminManagementOpen] = useState(false);
+  const [isGmailModalOpen, setIsGmailModalOpen] = useState(false);
 
   const currentUser: AuthUser | null = useMemo(() => {
     if (!session) return null;
@@ -176,6 +185,10 @@ export default function App() {
   const [isOverdueBellOpen, setIsOverdueBellOpen] = useState(false);
   const [preventiveStatusFilter, setPreventiveStatusFilter] = useState<string>('todos');
   const [preventiveTargetEquipmentId, setPreventiveTargetEquipmentId] = useState<string | undefined>(undefined);
+
+  // Painel Lateral de Navegação (Sidebar)
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // Toast notifications
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -380,6 +393,62 @@ export default function App() {
   const toggleTheme = () => {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   };
+
+  // ==========================================
+  // DISPARO AUTOMÁTICO DIÁRIO ÀS 06:00 VIA GMAIL
+  // ==========================================
+  useEffect(() => {
+    let timerId: ReturnType<typeof setInterval> | null = null;
+
+    const checkAndTriggerDaily0600Report = async () => {
+      try {
+        const config = await loadGmailConfig();
+        if (!config.enabled) return;
+
+        const now = new Date();
+        const currentHour = now.getHours();
+        const currentMinute = now.getMinutes();
+        const todayStr = getTodayDateString();
+
+        // Janela de disparo: 06:00 da manhã (06:00 até 06:10)
+        const targetHour = config.sendHour ?? 6;
+        const targetMinute = config.sendMinute ?? 0;
+
+        const isTimeWindow =
+          currentHour === targetHour &&
+          currentMinute >= targetMinute &&
+          currentMinute <= targetMinute + 10;
+
+        if (isTimeWindow && config.lastSentDate !== todayStr) {
+          const token = getGmailAccessToken();
+          if (token && equipments.length > 0) {
+            console.log('[GMAIL SCHEDULER] Iniciando envio matutino automático às 06:00 da manhã...');
+            const result = await sendDailyFleetReport({
+              equipments,
+              entries: fuelEntries,
+              dispenses: fuelDispenses,
+              projects: appProjects,
+              config,
+            });
+            addToast(
+              'success',
+              `Relatório da frota e saldo dos comboios enviado às 06:00 para ${result.recipients?.join(', ')}.`,
+              'Envio Matutino das 06:00 Concluído'
+            );
+          }
+        }
+      } catch (err: any) {
+        console.warn('[GMAIL SCHEDULER WARNING]', err);
+      }
+    };
+
+    checkAndTriggerDaily0600Report();
+    timerId = setInterval(checkAndTriggerDaily0600Report, 45000);
+
+    return () => {
+      if (timerId) clearInterval(timerId);
+    };
+  }, [equipments, fuelEntries, fuelDispenses, appProjects]);
 
   // ==========================================
   // AUTENTICAÇÃO, CONTROLE DE ACESSO & OBRAS
@@ -1730,15 +1799,14 @@ export default function App() {
     <div className="min-h-screen flex flex-col bg-[#0b1d3a] text-[#111827] dark:bg-[#0b0f19] dark:text-[#f3f4f6] transition-colors relative">
       {/* Subtle architectural background details in dark mode and light mode (fundo azul escuro) */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        {/* Plano de Fundo Malha Logística para Perfil Usuário */}
-        {session?.user.role === 'controlador' && (
-          <div
-            className="absolute inset-0 bg-cover bg-center pointer-events-none opacity-25 dark:opacity-30 mix-blend-screen transition-opacity duration-700"
-            style={{
-              backgroundImage: `url('/assets/makmo_fundo_3_malha_logistica.jpg')`,
-            }}
-          />
-        )}
+        {/* Plano de Fundo Malha Logística - Presente em todas as telas e perfis */}
+        <div
+          className="absolute inset-0 bg-cover bg-center pointer-events-none opacity-20 dark:opacity-30 mix-blend-screen transition-opacity duration-700"
+          style={{
+            backgroundImage: `url('/assets/makmo_fundo_3_malha_logistica.jpg')`,
+            backgroundAttachment: 'fixed',
+          }}
+        />
         <div className="hidden dark:block">
           <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-[1200px] h-[450px] bg-[radial-gradient(ellipse_at_center,rgba(245,158,11,0.05),transparent_70%)]" />
           <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.018)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.018)_1px,transparent_1px)] bg-[size:32px_32px]" />
@@ -1751,58 +1819,108 @@ export default function App() {
         </div>
       </div>
 
-      {/* Top Navigation */}
-      <Navbar
-        activeTab={activeTab}
-        setActiveTab={(tab) => {
-          if (tab === 'preventive-maintenance') {
-            setPreventiveStatusFilter('todos');
-            setPreventiveTargetEquipmentId(undefined);
+      {/* Main System Layout: Lateral Sidebar + Main Content Column */}
+      <div className="flex-1 flex flex-row min-h-screen relative z-10 w-full">
+        {/* Painel Lateral do Sistema de Todas as Obras */}
+        <SidebarNav
+          activeTab={activeTab}
+          setActiveTab={(tab) => {
+            if (tab === 'preventive-maintenance') {
+              setPreventiveStatusFilter('todos');
+              setPreventiveTargetEquipmentId(undefined);
+            }
+            setActiveTab(tab);
+          }}
+          equipmentCount={filteredEquipments.length}
+          logCount={filteredDailyLogs.length}
+          fuelDispenseCount={filteredFuelDispenses.length}
+          invoiceFileCount={filteredInvoiceFiles.length}
+          preventiveOverdueCount={preventiveOverdueCount}
+          deductionCount={filteredDeductionsCount}
+          correctiveCount={filteredCorrectiveMaintenances.length}
+          selectedProject={selectedProject}
+          canSwitchProject={
+            session?.user.role === 'admin' ||
+            (session?.user.allowedProjects &&
+              (session.user.allowedProjects.includes('all') ||
+                session.user.allowedProjects.length > 1))
           }
-          setActiveTab(tab);
-        }}
-        theme={theme}
-        toggleTheme={toggleTheme}
-        equipmentCount={filteredEquipments.length}
-        logCount={filteredDailyLogs.length}
-        fuelDispenseCount={filteredFuelDispenses.length}
-        invoiceFileCount={filteredInvoiceFiles.length}
-        preventiveOverdueCount={preventiveOverdueCount}
-        overdueItems={overduePreventiveItems}
-        isOverdueBellOpen={isOverdueBellOpen}
-        onToggleOverdueBell={() => setIsOverdueBellOpen((prev) => !prev)}
-        onCloseOverdueBell={() => setIsOverdueBellOpen(false)}
-        onViewAllOverdue={handleOpenAllOverdueInPCM}
-        onSelectOverdueEquipment={handleSelectOverdueEquipment}
-        deductionCount={filteredDeductionsCount}
-        correctiveCount={filteredCorrectiveMaintenances.length}
-        onExportCSV={handleExportCSV}
-        cloudStatus={cloudStatus}
-        currentUser={currentUser}
-        appUser={session?.user}
-        selectedProject={selectedProject}
-        canSwitchProject={
-          session?.user.role === 'admin' ||
-          (session?.user.allowedProjects &&
-            (session.user.allowedProjects.includes('all') ||
-              session.user.allowedProjects.length > 1))
-        }
-        onOpenProjectSelector={() => setIsProjectSelectorOpen(true)}
-        onOpenAdminManagement={() => setIsAdminManagementOpen(true)}
-        onLogout={handleLogout}
-      />
+          onOpenProjectSelector={() => setIsProjectSelectorOpen(true)}
+          appUser={session?.user}
+          currentUser={currentUser}
+          onOpenAdminManagement={() => setIsAdminManagementOpen(true)}
+          onOpenGmailIntegration={() => setIsGmailModalOpen(true)}
+          onLogout={handleLogout}
+          onExportCSV={handleExportCSV}
+          isOpenMobile={isMobileSidebarOpen}
+          onCloseMobile={() => setIsMobileSidebarOpen(false)}
+          isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
+        />
 
-      {/* Main Content Area with compact High Density padding */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-2 sm:p-3.5 relative z-10">
+        {/* Coluna Principal: Navbar + Conteúdo das Abas + Rodapé */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Top Navigation */}
+          <Navbar
+            activeTab={activeTab}
+            setActiveTab={(tab) => {
+              if (tab === 'preventive-maintenance') {
+                setPreventiveStatusFilter('todos');
+                setPreventiveTargetEquipmentId(undefined);
+              }
+              setActiveTab(tab);
+            }}
+            theme={theme}
+            toggleTheme={toggleTheme}
+            equipmentCount={filteredEquipments.length}
+            logCount={filteredDailyLogs.length}
+            fuelDispenseCount={filteredFuelDispenses.length}
+            invoiceFileCount={filteredInvoiceFiles.length}
+            preventiveOverdueCount={preventiveOverdueCount}
+            overdueItems={overduePreventiveItems}
+            isOverdueBellOpen={isOverdueBellOpen}
+            onToggleOverdueBell={() => setIsOverdueBellOpen((prev) => !prev)}
+            onCloseOverdueBell={() => setIsOverdueBellOpen(false)}
+            onViewAllOverdue={handleOpenAllOverdueInPCM}
+            onSelectOverdueEquipment={handleSelectOverdueEquipment}
+            deductionCount={filteredDeductionsCount}
+            correctiveCount={filteredCorrectiveMaintenances.length}
+            onExportCSV={handleExportCSV}
+            cloudStatus={cloudStatus}
+            currentUser={currentUser}
+            appUser={session?.user}
+            selectedProject={selectedProject}
+            canSwitchProject={
+              session?.user.role === 'admin' ||
+              (session?.user.allowedProjects &&
+                (session.user.allowedProjects.includes('all') ||
+                  session.user.allowedProjects.length > 1))
+            }
+            onOpenProjectSelector={() => setIsProjectSelectorOpen(true)}
+            onOpenAdminManagement={() => setIsAdminManagementOpen(true)}
+            onOpenGmailIntegration={() => setIsGmailModalOpen(true)}
+            onLogout={handleLogout}
+            onToggleSidebar={() => setIsMobileSidebarOpen(true)}
+            isSidebarCollapsed={isSidebarCollapsed}
+            onToggleSidebarCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
+          />
+
+          {/* Main Content Area with aligned High Density padding and min-w-0 */}
+          <main className="flex-1 max-w-7xl w-full mx-auto px-2 sm:px-4 py-2 sm:py-3.5 relative z-10 min-w-0">
         {activeTab === 'database' && (
           <EquipmentsTab
             equipments={filteredEquipments}
+            dailyLogs={filteredDailyLogs}
+            preventiveRecords={filteredPreventiveRecords}
+            correctiveMaintenances={filteredCorrectiveMaintenances}
+            preventivePlans={filteredPreventivePlans}
             onAddEquipment={handleAddEquipment}
             onUpdateEquipment={handleUpdateEquipment}
             onDeleteEquipment={handleDeleteEquipment}
             onRestoreDefaults={handleRestoreDefaults}
             userRole={session?.user.role}
             selectedProject={selectedProject}
+            userName={session?.user.name || currentUser?.name}
           />
         )}
 
@@ -1884,7 +2002,7 @@ export default function App() {
 
       {/* High Density Footer info bar */}
       <footer className="border-t border-[#dcdfe4] dark:border-[#333333] bg-white dark:bg-[#141414] py-1.5 text-center text-[11px] text-[#6b7280] dark:text-[#9ca3af]">
-        <div className="max-w-7xl mx-auto px-3 flex flex-col sm:flex-row items-center justify-between gap-1.5">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 flex flex-col sm:flex-row items-center justify-between gap-1.5">
           <div className="flex items-center gap-2">
             <MakmoLogo className="h-4 w-auto" compact showSubtitle={false} showSubBrand={false} />
             <span className="font-semibold text-[#374151] dark:text-[#d1d5db]">
@@ -1910,6 +2028,8 @@ export default function App() {
           </div>
         </div>
       </footer>
+    </div>
+  </div>
 
       {/* Project Selector Modal */}
       {session && (
@@ -1940,6 +2060,20 @@ export default function App() {
           onDeleteUser={handleDeleteUser}
           onSaveProject={handleSaveProject}
           onDeleteProject={handleDeleteProject}
+        />
+      )}
+
+      {/* Gmail Integration Modal (Apenas Perfil Admin) */}
+      {session && session.user.role === 'admin' && (
+        <GmailIntegrationModal
+          isOpen={isGmailModalOpen}
+          onClose={() => setIsGmailModalOpen(false)}
+          userRole={session.user.role}
+          equipments={equipments}
+          dispenses={fuelDispenses}
+          entries={fuelEntries}
+          projects={appProjects}
+          onShowToast={addToast}
         />
       )}
 

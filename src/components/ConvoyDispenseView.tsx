@@ -1212,7 +1212,7 @@ export const ConvoyDispenseView: React.FC<ConvoyDispenseViewProps> = ({
 
         {/* Table */}
         <div className="overflow-x-auto border border-[#eaecef] dark:border-[#262626] rounded-md">
-          <table className="w-full text-left text-xs border-collapse">
+          <table className="w-full min-w-[950px] text-left text-xs border-collapse">
             <thead>
               <tr className="bg-[#f8fafc] dark:bg-[#141414] text-[#4b5563] dark:text-[#9ca3af] uppercase text-[10px] font-bold tracking-wider border-b border-[#eaecef] dark:border-[#262626]">
                 <th className="p-2.5">Data</th>
